@@ -8,3 +8,4 @@ Gustavo Garcia Ponti
 Cauã Pantar
 Kayle Carneiro
 Eduardo Rosinha
+André Piucoo
