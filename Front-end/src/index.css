@@ -1,0 +1,307 @@
+/*Fontes:*/
+@font-face {
+  font-family: GermanikaPersonalUse;
+  src: url(fonts/GermanikaPersonalUseRegular-Wdev.ttf);
+}
+@font-face {
+  font-family: GeorgiaProCondLight;
+  src: url(fonts/georgia-pro-cond-light.ttf);
+}
+@font-face {
+  font-family: Parchment;
+  src: url(fonts/Parchment.ttf);
+}
+@font-face {
+  font-family: OldEnglishTextMt;
+  src: url(fonts/old-english-text-mt.ttf);
+}
+
+.main-container {
+background-color: #EBE6D5
+}
+
+/* .feed-centro
+.feed-perfil
+ */
+
+.navbar {
+  background-color: #04305D;
+  display: flex;
+  justify-content: center;
+  gap: 0.9cm;
+  font-family: GeorgiaProCondLight, serif;
+  height: 1.01cm;
+  position: absolute;
+  top: 0.56cm;
+  left: 0px;
+  right: 0px;
+}
+
+.nav-links {
+  display: flex;
+  gap: 30px;
+  align-items: center;
+}
+
+h2, .page-title{
+  font-family: Parchment, serif;
+  color: #1A1A1A;
+  font-size: 37.32px;
+}
+/*Se for Dnd é diferente porque um certo alguém quis (eu)*/
+h2::first-letter, .page-title::first-letter {
+  color: #D3230C;
+  font-size: 71.98px;
+} 
+
+.custom-select{
+  background-color: #04305D;
+  color: #F1EEE3;
+  font-family: GeorgiaProCondLight, serif;
+  cursor: pointer;
+  appearance: none;
+  font-size: 14.66px;
+}
+
+/*Header*/
+.main-header {
+  position: relative;
+}
+
+.brand-banner h1{
+  color: #F1EEE3;
+  background-color: #04305D;
+  font-family: GermanikaPersonalUse, serif;
+  font-size: 88pt;
+  display: flex;
+  justify-content: center;
+}
+
+.brand-banner {
+  position:absolute;
+  left: 50%; 
+  transform: translateX(-50%);
+  top: 0px;
+  width: 100%;
+  max-width: 1072.2px;
+  pointer-events: none;
+}
+
+.nav-search input{
+  background-color: #F1EEE3;
+  color: #1A1A1A;
+  font-family: GeorgiaProCondLight, serif;
+  border: 0;
+  outline: 0;
+}
+
+/* trocar a cor do placeholder */
+/* Posts:     .posts-timeline  .post-card  .post-header  .post-avatar
+              .post-content  .post-tags-container  .post-tag
+              .post-actions .feed-vazio*/
+/*Posts*/
+.post-user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.2cm;
+}
+.post-tag {
+  color:#D3230C
+}
+
+.post-username {
+  font-family: GeorgiaProCondLight, serif;
+  font-weight: bolder;
+  color:#1A1A1A;
+  font-size: 18.66px;
+}
+.post-badge-role {
+  background-color: #D3230C;
+  color: #F1EEE3;
+  font-family: GeorgiaProCondLight, serif;
+  border:1.5px solid #1A1A1A;
+  font-size: 14.66px;
+}
+
+.btn-action, .btn-action.curtido {
+  cursor: pointer;
+  border: none;
+  outline: none;
+  background: none;
+  font-family: GeorgiaProCondLight, serif;
+}
+/*Home*/
+.posts-timeline{
+  font-family: GeorgiaProCondLight, serif;
+  color:#1A1A1A;
+}
+.feed-area {
+  background-color: #F1EEE3;
+  border: 2px solid #04305D;
+  width: 20cm;
+  position: absolute; 
+  top: 7.8cm;
+  left: 50%; 
+  transform: translateX(-50%);
+}
+
+.feed-area::before,
+.feed-area::after {
+  content: "";
+  position: absolute;
+  left: -3px; 
+  right: -3px;
+  height: 10px;
+}
+.feed-area::before {
+  top: -10px; 
+  background:
+    linear-gradient(to top left, #04305D 50%, transparent 50%) left top / 25px 10px no-repeat,
+    linear-gradient(to top right, #04305D 50%, transparent 50%) right top / 25px 10px no-repeat;
+}
+.feed-area::after {
+  bottom: -10px; 
+  background:
+    linear-gradient(to bottom left, #04305D 50%, transparent 50%) left bottom / 25px 10px no-repeat,
+    linear-gradient(to bottom right, #04305D 50%, transparent 50%) right bottom / 25px 10px no-repeat;
+}
+
+.parchment-box{
+    font-family: GeorgiaProCondLight, serif;
+    background-color: #F1EEE3;
+    border: 2px solid #04305D;
+    color: #1A1A1A;
+    width: 253.2px;
+    font-size: 16px;
+    position: relative;
+}
+.parchment-box::before,
+.parchment-box::after {
+  content: "";
+  position: absolute;
+  left: -3px; 
+  right: -3px;
+  height: 10px;
+}
+.parchment-box::before {
+  top: -10px; 
+  background:
+    linear-gradient(to top left, #04305D 50%, transparent 50%) left top / 25px 10px no-repeat,
+    linear-gradient(to top right, #04305D 50%, transparent 50%) right top / 25px 10px no-repeat;
+}
+.parchment-box::after {
+  bottom: -10px; 
+  background:
+    linear-gradient(to bottom left, #04305D 50%, transparent 50%) left bottom / 25px 10px no-repeat,
+    linear-gradient(to bottom right, #04305D 50%, transparent 50%) right bottom / 25px 10px no-repeat;
+}
+
+.banner-content {
+  font-family: GeorgiaProCondLight, serif;
+  color: #1A1A1A;
+}
+.banner-content h1 {
+  color: #D3230C;
+  font-family: GermanikaPersonalUse, serif;
+  font-size: 88pt;
+}
+/*Filtros:      .feed-header .select-small
+Auth:         .auth-page  .auth-banner */
+/* Autenticação */
+body{
+  background-color: #EBE6D5;
+}
+
+a {
+  text-decoration: none;
+}
+.navbar a {
+  color: #F1EEE3;
+}
+.form-footer a, 
+.tags-list a {
+  color: #D3230C;
+}
+
+.form-card {
+  background-color: #F1EEE3;
+  border: 2px solid #04305D;
+  width: max-content;
+  position: relative;
+  padding-left: 0.93cm;
+  padding-right: 0.93cm;
+}
+
+.form-card::before,
+.form-card::after {
+  content: "";
+  position: absolute;
+  left: -3px; 
+  right: -3px;
+  height: 10px;
+}
+.form-card::before {
+  top: -10px; 
+  background:
+    linear-gradient(to top left, #04305D 50%, transparent 50%) left top / 25px 10px no-repeat,
+    linear-gradient(to top right, #04305D 50%, transparent 50%) right top / 25px 10px no-repeat;
+}
+.form-card::after {
+  bottom: -10px; 
+  background:
+    linear-gradient(to bottom left, #04305D 50%, transparent 50%) left bottom / 25px 10px no-repeat,
+    linear-gradient(to bottom right, #04305D 50%, transparent 50%) right bottom / 25px 10px no-repeat;
+}
+
+.input-group {
+  font-family: Georgi=aProCondLight, serif;
+  color: #1A1A1A;
+}
+.input-group label {
+  font-family: Georgi=aProCondLight, serif;
+  color: #1A1A1A;
+}
+/* não ta funfando ^^^ */
+.input-group input {
+  background-color: #EBE6D5;
+  border: 2px solid #04305D
+}
+.btn-submit {
+  background-color: #04305D;
+  font-family: GeorgiaProCondLight, serif;
+  color:#F1EEE3;
+  border: none;
+}
+.form-footer {
+  font-family: GeorgiaProCondLight, serif;
+  color: #1A1A1A;
+}
+/*.auth-form      
+Notificações: .page-title*/
+.notificacao-item{
+  font-family: GeorgiaProCondLight, serif;
+  color: #1A1A1A;
+  font-size: 16px;
+}
+
+/*Perfil:       .perfil-cabecalho  .perfil-info
+              .perfil-stats  .stat-box  .stat-label  .stat-valor */
+
+/* posicionando */
+.sidebar-left{
+  position: absolute;
+  top: 7.8cm;
+  left: 2.7cm;
+}
+
+.sidebar-right {
+  position: absolute;
+  top: 7.8cm;
+  right: 2.7cm;
+}
+
+.auth-form-area {
+  position: absolute;
+  top: 5.63cm;
+  right: 4.21cm;
+}
