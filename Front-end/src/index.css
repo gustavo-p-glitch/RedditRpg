@@ -15,7 +15,9 @@
   font-family: OldEnglishTextMt;
   src: url(fonts/old-english-text-mt.ttf);
 }
-
+* {
+  box-sizing: border-box;
+}
 .main-container {
 background-color: #EBE6D5
 }
@@ -28,6 +30,7 @@ background-color: #EBE6D5
   background-color: #04305D;
   display: flex;
   justify-content: center;
+  align-items: center;
   gap: 0.9cm;
   font-family: GeorgiaProCondLight, serif;
   height: 1.01cm;
@@ -47,6 +50,7 @@ h2, .page-title{
   font-family: Parchment, serif;
   color: #1A1A1A;
   font-size: 37.32px;
+  margin: 0;
 }
 /*Se for Dnd é diferente porque um certo alguém quis (eu)*/
 h2::first-letter, .page-title::first-letter {
@@ -60,7 +64,10 @@ h2::first-letter, .page-title::first-letter {
   font-family: GeorgiaProCondLight, serif;
   cursor: pointer;
   appearance: none;
+  gap: 0.15cm;
   font-size: 14.66px;
+  margin-bottom: 0.2cm;
+  border: none;
 }
 
 /*Header*/
@@ -94,18 +101,29 @@ h2::first-letter, .page-title::first-letter {
   border: 0;
   outline: 0;
 }
-
-/* trocar a cor do placeholder */
-/* Posts:     .posts-timeline  .post-card  .post-header  .post-avatar
-              .post-content  .post-tags-container  .post-tag
+.nav-search input::placeholder {
+  color: #C9BEA3;
+  opacity: 1; 
+}
+/* Posts:     .posts-timeline  .post-card .post-avatar .post-tag
               .post-actions .feed-vazio*/
 /*Posts*/
+
+.post-content p {
+  margin: 0; 
+}
 .post-user-info {
   display: flex;
   align-items: center;
   gap: 0.2cm;
+  margin-top: 0.2cm;
+  margin-bottom: 0.2cm;
 }
-.post-tag {
+.post-tags-container {
+  margin-top: 0.2cm;
+}
+
+.post-tags-container a {
   color:#D3230C
 }
 
@@ -114,6 +132,12 @@ h2::first-letter, .page-title::first-letter {
   font-weight: bolder;
   color:#1A1A1A;
   font-size: 18.66px;
+}
+.post-username-perfil{
+  font-family: GeorgiaProCondLight, serif;
+  font-weight: bolder;
+  color:#1A1A1A;
+  font-size: 18pt;
 }
 .post-badge-role {
   background-color: #D3230C;
@@ -143,6 +167,7 @@ h2::first-letter, .page-title::first-letter {
   top: 7.8cm;
   left: 50%; 
   transform: translateX(-50%);
+  padding: 0.25cm;
 }
 
 .feed-area::before,
@@ -171,9 +196,10 @@ h2::first-letter, .page-title::first-letter {
     background-color: #F1EEE3;
     border: 2px solid #04305D;
     color: #1A1A1A;
-    width: 253.2px;
+    width: 6.7cm;
     font-size: 16px;
     position: relative;
+    padding: 0.25cm;
 }
 .parchment-box::before,
 .parchment-box::after {
@@ -230,6 +256,7 @@ a {
   position: relative;
   padding-left: 0.93cm;
   padding-right: 0.93cm;
+  padding-top: 0.2cm;
 }
 
 .form-card::before,
@@ -253,45 +280,154 @@ a {
     linear-gradient(to bottom right, #04305D 50%, transparent 50%) right bottom / 25px 10px no-repeat;
 }
 
+.form-card h2 {
+  text-align: center;
+  margin-bottom: 0.2cm;
+}
+
 .input-group {
-  font-family: Georgi=aProCondLight, serif;
-  color: #1A1A1A;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15cm;
+  margin-bottom: 0.2cm;
 }
+.auth-form .btn-submit {
+  display: block;
+  margin: 0.4cm auto 0 auto;
+}
+
 .input-group label {
-  font-family: Georgi=aProCondLight, serif;
+  font-family: GeorgiaProCondLight, serif;
   color: #1A1A1A;
+  font-size: 12pt;
 }
-/* não ta funfando ^^^ */
 .input-group input {
+  height: 0.8cm;
+  width: 6.92cm;
   background-color: #EBE6D5;
-  border: 2px solid #04305D
+  border: 2px solid #04305D;
+  border-radius: 0;
+  padding-left: 0.2cm;
+  outline: none;
+  font-family: GeorgiaProCondLight, serif;
+  color: #1A1A1A;
+  font-size: 12pt;
 }
 .btn-submit {
   background-color: #04305D;
   font-family: GeorgiaProCondLight, serif;
   color:#F1EEE3;
   border: none;
+  width: max-content;
 }
+
 .form-footer {
   font-family: GeorgiaProCondLight, serif;
   color: #1A1A1A;
+  margin: 0.4cm 0.2cm 0.2cm 0.2cm;
+  text-align: center;
 }
-/*.auth-form      
-Notificações: .page-title*/
+/*Notificações: .page-title*/
 .notificacao-item{
   font-family: GeorgiaProCondLight, serif;
   color: #1A1A1A;
   font-size: 16px;
 }
 
-/*Perfil:       .perfil-cabecalho  .perfil-info
-              .perfil-stats  .stat-box  .stat-label  .stat-valor */
+/*Perfil*/
+.stat-num{
+  font-family: GeorgiaProCondLight, serif;
+  font-weight: bolder;
+}
+.post-layout {
+  display: flex;
+  gap: 0.4cm;
+  margin-bottom: 0.6cm;
+}
+.post-col-dir {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2cm;
+  flex: 1;
+}
+.post-user-info {
+  display: flex;
+  align-items: center;
+  gap: 0.2cm;
+  margin: 0;
+}
+.perfil-cabecalho {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2cm;
+}
+.perfil-centro {
+  position: absolute;
+  top: 7.8cm;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20cm;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6cm;
+}
 
+.perfil-centro .feed-area {
+  position: relative;
+  top: 0;
+  left: 0;
+  transform: none;
+  width: 100%;
+}
+
+.perfil-stats-container {
+  background-color: #F1EEE3;
+  border: 2px solid #04305D;
+  display: flex;
+  justify-content: space-evenly;
+  padding: 0.3cm 0;
+}
+
+.stat-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.stat-label {
+  font-family: GeorgiaProCondLight, serif;
+  font-size: 14px;
+  color: #1A1A1A;
+}
+.stat-num {
+  font-family: GeorgiaProCondLight, serif;
+  font-size: 22px;
+  font-weight: bolder;
+  color: #1A1A1A;
+}
+.avatar-perfil {
+  width: 5.8cm;
+  height: 5.8cm;
+  object-fit: cover;
+  border: 3px solid #04305D;
+  flex-shrink: 0;
+}
+.description {
+  font-family: GeorgiaProCondLight, serif;
+  color: #1A1A1A;
+}
 /* posicionando */
+.auth-banner {
+  position:absolute;
+  left: 2.35cm;
+  top: 1.63cm;
+  display: flex;
+  text-align: center;
+}
 .sidebar-left{
   position: absolute;
   top: 7.8cm;
   left: 2.7cm;
+  width: 6cm;
 }
 
 .sidebar-right {
@@ -304,4 +440,138 @@ Notificações: .page-title*/
   position: absolute;
   top: 5.63cm;
   right: 4.21cm;
+}
+.coluna-direita-perfil {
+  position: absolute;
+  top: 7.8cm;
+  right: 2.7cm;
+  display: flex;
+  flex-direction: column;
+  gap: 0.77cm;
+}
+.coluna-direita-perfil .post-form-container,
+.coluna-direita-perfil .perfil-sidebar-tags {
+  position: static;
+}
+
+/*Postagem*/
+.form-post-textarea {
+  width: 6.27cm;
+  height: 4.75cm;
+  font-family: GeorgiaProCondLight, serif;
+  color:#1A1A1A;
+  background-color: #f1eee3;
+  border: none;
+  font-size: 12pt;
+}
+.form-post-textarea::after{
+  color:#C9BEA3;
+}
+.form-post-textarea:focus {
+  outline: none;
+  border: none;
+}
+textarea {
+  resize: none;
+}
+textarea::placeholder{
+  color: #C9BEA3;
+}
+
+.form-post-textarea {
+  scrollbar-width: thin;
+  scrollbar-color: #C9BEA3 #f1eee3;
+}
+.tag-btn {
+  background-color: #04305D;
+  color: #F1EEE3;
+  border: none;
+  width: 2cm;
+  height: 0.7cm;
+  font-family: GeorgiaProCondLight, serif;
+  cursor: pointer;
+  font-size: 11pt;
+  transition: background-color 0.2s;
+}
+
+.tag-btn.selected {
+  background-color: #D3230C;
+  color: #F1EEE3;
+}
+
+/*Teste*/
+.btn-post-menu {
+  border: none;
+  background: none;
+}
+.post-menu-excluir{
+  border: none;
+  font-family: GeorgiaProCondLight, serif;
+  color: #1A1A1A;
+  background: none;
+}
+.post-menu-icon{
+  width: 0.36cm;
+  height: 0.36cm;
+}
+.avatar-img {
+  width: 1.2cm;
+  height: 1.2cm;
+  object-fit: cover;
+  border: 2px solid #04305D;
+  flex-shrink: 0;
+}
+
+/* Container do Avatar + Botão no Perfil */
+.avatar-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+/* Seletor de Fotos */
+.seletor-foto-container {
+  display: flex;
+  gap: 0.3cm;
+  flex-wrap: wrap;
+  margin: 0.3cm 0;
+}
+
+.seletor-foto-img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  cursor: pointer;
+  border: 3px solid #04305D;
+  opacity: 0.6;
+  transition: opacity 0.15s, border 0.15s;
+}
+
+.seletor-foto-img.selecionada {
+  border-color: #D3230C;
+}
+
+.seletor-foto-title {
+  font-family: GeorgiaProCondLight, serif;
+  font-size: 14px;
+  margin: 0 0 4px;
+}
+
+.salvando-texto {
+  font-size: 12px;
+  font-family: GeorgiaProCondLight, serif;
+  color: #1A1A1A;
+}
+
+.btn-trocar-foto {
+  position: absolute;
+  bottom: 0;
+  right: -20px;
+  background-color: #04305D;
+  color: #F1EEE3;
+  border: none;
+  cursor: pointer;
+  font-size: 12pt;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
