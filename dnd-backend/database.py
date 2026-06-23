@@ -1,9 +1,25 @@
-# Banco de dados em memória
-# Em produção, substitua por SQLite / PostgreSQL / MongoDB
+from pymongo import MongoClient, ASCENDING, DESCENDING
+from pymongo.collection import Collection
 
-usuarios    = []   # { id, nome, email, username, senha_hash, role, bio, data_entrada }
-postagens   = []   # { id, autor_id, conteudo, tags, criado_em }
-curtidas    = []   # { id, post_id, usuario_id }
-comentarios = []   # { id, post_id, autor_id, texto, criado_em }
-seguidores  = []   # { id, seguidor_id, seguindo_id }
-notificacoes = []  # { id, destinatario_id, remetente_id, tipo, post_id, lida, criado_em }
+MONGO_URI = "mongodb://localhost:27017"
+DB_NAME   = "dnd_forum"
+
+_client = MongoClient(MONGO_URI)
+_db     = _client[DB_NAME]
+
+usuarios:     Collection = _db["usuarios"]
+postagens:    Collection = _db["postagens"]
+curtidas:     Collection = _db["curtidas"]
+comentarios:  Collection = _db["comentarios"]
+seguidores:   Collection = _db["seguidores"]
+notificacoes: Collection = _db["notificacoes"]
+
+
+def criar_indices():
+    usuarios.create_index("email",    unique=True)
+    usuarios.create_index("username", unique=True)
+    postagens.create_index([("autor_id", ASCENDING)])
+    postagens.create_index([("criado_em", DESCENDING)])
+    curtidas.create_index([("post_id", ASCENDING), ("usuario_id", ASCENDING)], unique=True)
+    seguidores.create_index([("seguidor_id", ASCENDING), ("seguindo_id", ASCENDING)], unique=True)
+    notificacoes.create_index([("destinatario_id", ASCENDING)])
