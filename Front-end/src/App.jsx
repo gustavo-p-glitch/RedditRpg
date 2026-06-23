@@ -3,48 +3,127 @@ import {
   login, cadastro, logout,
   salvarToken, removerToken, estaLogado,
   getMeuPerfil, getFeedGeral, getFeedAmigos,
-  curtirPost, getNotificacoes, marcarNotificacoesLidas,
+  curtirPost, criarPost, deletarPost, getNotificacoes, marcarNotificacoesLidas,
+  atualizarPerfil,
 } from "./api";
 
-const TODAS_TAGS = ["Mago", "Campanha", "DMs", "Homebrew", "Classes", "Fichas", "Raças"];
+import extraIcon from "./assets/extra.svg";
 
-//  COMPONENTE: Avatar
-//  Gera um círculo com as iniciais do usuário (sem precisar de foto)
-//  Props: username (string), tamanho (número, padrão 36)
+import imagem1 from "./assets/imagem1.png";
+import imagem2 from "./assets/imagem2.png";
+import imagem3 from "./assets/imagem3.png";
+import imagem4 from "./assets/imagem4.png";
+import imagem5 from "./assets/imagem5.png";
+import imagem6 from "./assets/imagem6.png";
+import imagem0 from "./assets/imagem0.png";
 
-function Avatar({ username, tamanho = 36 }) {
-  const iniciais = username.slice(0, 2).toUpperCase();
-  // Escolhe uma cor baseada na primeira letra do nome
-  const cores = ["#8b1a1a", "#1a4a8b", "#1a6b3a", "#7a3d8b", "#8b5a1a"];
-  const cor = cores[username.charCodeAt(0) % cores.length];
+const TODAS_TAGS = ["Regras", "Campanha", "DMs", "Homebrew", "Classes", "Raças", "Monstros", "Itens", "Combate"];
 
+const FOTOS = [imagem1, imagem2, imagem3, imagem4, imagem5, imagem6];
+function srcFoto(numeroFoto) {
+  if (!numeroFoto) return imagem0;
+  return FOTOS[Number(numeroFoto) - 1] ?? imagem0;
+}
+
+function Avatar({ username = "?", numeroFoto = null, className = "avatar-img" }) {
   return (
-    <div style={{
-      width: tamanho, height: tamanho,
-      borderRadius: "50%",
-      background: cor,
-      color: "#f5e6c8",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      fontFamily: "'Cinzel', serif",
-      fontSize: tamanho * 0.35,
-      fontWeight: 700,
-      flexShrink: 0,
-      border: "2px solid #d4a843",
-      letterSpacing: "0.03em",
-    }}>
-      {iniciais}
+    <img
+      src={srcFoto(numeroFoto)}
+      alt={username}
+      className={className}
+    />
+  );
+}
+
+function SeletorFoto({ fotoAtual, onEscolher }) {
+  return (
+    <div className="seletor-foto-container">
+      {FOTOS.map((src, i) => {
+        const numero = i + 1;
+        const selecionada = Number(fotoAtual) === numero;
+        return (
+          <img
+            key={numero}
+            src={src}
+            alt={`Foto ${numero}`}
+            onClick={() => onEscolher(numero)}
+            className={`seletor-foto-img ${selecionada ? "selecionada" : ""}`}
+          />
+        );
+      })}
     </div>
   );
 }
 
-//  COMPONENTE: PostCard
-//  Recebe um objeto "post" como prop e renderiza o card completo.
-//  Props: post (objeto vindo do backend com autor, conteudo, tags, likes, curtido_por_mim)
+function FormPost({ onPostar, usuario }) {
+  const [conteudo,         setConteudo]         = useState("");
+  const [tagsSelecionadas, setTagsSelecionadas] = useState([]);
+  const [carregando,       setCarregando]       = useState(false);
+  const [erro,             setErro]             = useState("");
 
-function PostCard({ post }) {
+  function toggleTag(tag) {
+    setTagsSelecionadas(prev =>
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    );
+  }
+
+  async function handlePublicar() {
+    if (!conteudo.trim()) { setErro("O conteúdo não pode ser vazio."); return; }
+    setCarregando(true);
+    setErro("");
+    const { ok, dados } = await criarPost(conteudo, tagsSelecionadas);
+    if (ok) {
+      setConteudo("");
+      setTagsSelecionadas([]);
+      onPostar();
+    } else {
+      setErro(dados.erro ?? "Erro ao publicar.");
+    }
+    setCarregando(false);
+  }
+
+  return (
+    <aside className="post-form-container">
+      <div className="parchment-box">
+        {usuario && (
+          <div className="post-user-info">
+            <span className="post-username">{usuario.username}</span>
+            <span className="post-badge-role">{usuario.role}</span>
+          </div>
+        )}
+        <textarea
+          className="form-post-textarea"
+          placeholder="O que está acontecendo na sua campanha?"
+          value={conteudo}
+          onChange={e => setConteudo(e.target.value)}
+          maxLength={500}
+        />
+        <div className="form-post-tags">
+          {TODAS_TAGS.map(tag => (
+            <button
+              key={tag}
+              type="button"
+              className={`tag-btn ${tagsSelecionadas.includes(tag) ? 'selected' : ''}`}
+              onClick={() => toggleTag(tag)}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+        {erro && <p className="form-erro">{erro}</p>}
+        <button className="btn-submit" onClick={handlePublicar} disabled={carregando}>
+          {carregando ? "Publicando..." : "PUBLICAR"}
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+function PostCard({ post, podeExcluir = false, onExcluir }) {
   const [likes, setLikes]           = useState(post.likes);
   const [curtido, setCurtido]       = useState(post.curtido_por_mim ?? false);
   const [carregando, setCarregando] = useState(false);
+  const [menuAberto, setMenuAberto] = useState(false);
 
   async function handleCurtir() {
     if (carregando) return;
@@ -57,49 +136,68 @@ function PostCard({ post }) {
     setCarregando(false);
   }
 
-  // backend manda autor: { username, role } — ?? garante fallback caso venha diferente
-  const username = post.autor?.username ?? post.username ?? "?";
-  const role     = post.autor?.role     ?? post.role     ?? "";
+  async function handleExcluir() {
+    setMenuAberto(false);
+    const { ok } = await deletarPost(post.id);
+    if (ok && onExcluir) onExcluir(post.id);
+  }
+
+  const username   = post.autor?.username   ?? post.username ?? "?";
+  const role       = post.autor?.role       ?? post.role     ?? "";
+  const numeroFoto = post.autor?.numero_foto ?? null;
 
   return (
     <article className="post-card">
-      <div className="post-header">
-        <Avatar username={username} />
-        <div className="post-user-info">
-          <span className="post-username">{username}</span>
-          <span className="post-badge-role">{role}</span>
+      <div className="post-layout">
+        <div className="post-col-esq">
+          <Avatar username={username} numeroFoto={numeroFoto} />
         </div>
-      </div>
 
-      <div className="post-content">
-        {/* backend usa "conteudo", mock usava "content" */}
-        <p>{post.conteudo ?? post.content}</p>
+        <div className="post-col-dir">
+          <div className="post-user-info">
+            <span className="post-username">{username}</span>
+            <span className="post-badge-role">{role}</span>
+          </div>
 
-        <div className="post-tags-container">
-          {(post.tags ?? []).map(tag => (
-            <a key={tag} href="#" className="post-tag">#{tag}</a>
-          ))}
+          <div className="post-content">
+            <p>{post.conteudo}</p>
+            <div className="post-tags-container">
+              {(post.tags ?? []).map(tag => (
+                <a key={tag} href="#" className="post-tag">#{tag}</a>
+              ))}
+            </div>
+          </div>
+
+          <div className="post-actions">
+            <button
+              className={`btn-action ${curtido ? "curtido" : ""}`}
+              onClick={handleCurtir}
+              disabled={carregando}
+            >
+              ❤️ {likes}
+            </button>
+            <button className="btn-action">
+              💬 {post.comments ?? 0}
+            </button>
+          </div>
+
+          {podeExcluir && (
+            <div className="post-menu">
+              <button className="btn-post-menu" onClick={() => setMenuAberto(v => !v)}>
+                <img src={extraIcon} alt="opções" className="post-menu-icon" />
+              </button>
+              {menuAberto && (
+                <button className="post-menu-opcao post-menu-excluir" onClick={handleExcluir}>
+                  Excluir
+                </button>
+              )}
+            </div>
+          )}
         </div>
-      </div>
-
-      <div className="post-actions">
-        <button
-          className={`btn-action ${curtido ? "curtido" : ""}`}
-          onClick={handleCurtir}
-          disabled={carregando}
-        >
-          ❤️ {likes}
-        </button>
-        <button className="btn-action">
-          💬 {post.comments ?? 0}
-        </button>
       </div>
     </article>
   );
 }
-
-//  COMPONENTE: Navbar
-//  Props: paginaAtual (string), setPaginaAtual (função), onLogout (função), notifNaoLidas (número)
 
 function Navbar({ paginaAtual, setPaginaAtual, onLogout, notifNaoLidas = 0 }) {
   const links = [
@@ -124,8 +222,7 @@ function Navbar({ paginaAtual, setPaginaAtual, onLogout, notifNaoLidas = 0 }) {
               {link.label}
             </a>
           ))}
-          <a href="#" onClick={e => { e.preventDefault(); onLogout(); }}
-            style={{ color: "#D3230C" }}>
+          <a href="#" onClick={e => { e.preventDefault(); onLogout(); }}>
             Sair
           </a>
         </div>
@@ -138,11 +235,9 @@ function Navbar({ paginaAtual, setPaginaAtual, onLogout, notifNaoLidas = 0 }) {
           <h1>Nome Foda</h1>
         </div>
       )}
-
     </header>
   );
 }
-//  PÁGINA: Home
 
 function PaginaHome() {
   const [filtroFeed, setFiltroFeed] = useState("para-voce");
@@ -206,8 +301,6 @@ function PaginaHome() {
   );
 }
 
-//  PÁGINA: Login
-
 function PaginaLogin({ setPaginaAtual, onLoginSucesso }) {
   const [email, setEmail]           = useState("");
   const [senha, setSenha]           = useState("");
@@ -250,7 +343,7 @@ function PaginaLogin({ setPaginaAtual, onLoginSucesso }) {
               <label>Senha</label>
               <input type="password" value={senha} onChange={e => setSenha(e.target.value)} onKeyDown={handleKeyDown} />
             </div>
-            {erro && <p style={{ color: "#D3230C", fontSize: "0.875rem", margin: "0" }}>{erro}</p>}
+            {erro && <p className="form-erro">{erro}</p>}
             <button className="btn-submit" onClick={handleEntrar} disabled={carregando}>
               {carregando ? "Entrando..." : "ENTRAR"}
             </button>
@@ -264,8 +357,6 @@ function PaginaLogin({ setPaginaAtual, onLoginSucesso }) {
     </div>
   );
 }
-
-//  PÁGINA: Cadastro
 
 function PaginaCadastro({ setPaginaAtual, onLoginSucesso }) {
   const [nome,           setNome]           = useState("");
@@ -324,7 +415,7 @@ function PaginaCadastro({ setPaginaAtual, onLoginSucesso }) {
               <label>Confirmar Senha</label>
               <input type="password" value={confirmarSenha} onChange={e => setConfirmarSenha(e.target.value)} />
             </div>
-            {erro && <p style={{ color: "#D3230C", fontSize: "0.875rem", margin: "0" }}>{erro}</p>}
+            {erro && <p className="form-erro">{erro}</p>}
             <button className="btn-submit" onClick={handleCriarConta} disabled={carregando}>
               {carregando ? "Criando conta..." : "CRIAR CONTA"}
             </button>
@@ -338,8 +429,6 @@ function PaginaCadastro({ setPaginaAtual, onLoginSucesso }) {
     </div>
   );
 }
-
-//  PÁGINA: Notificações
 
 function PaginaNotificacoes() {
   const [notificacoes, setNotificacoes] = useState([]);
@@ -371,8 +460,8 @@ function PaginaNotificacoes() {
         {carregando && <p className="feed-vazio">Carregando...</p>}
         {!carregando && notificacoes.length === 0 && <p className="feed-vazio">Nenhuma notificação.</p>}
         {notificacoes.map(n => (
-          <div key={n.id} className="notificacao-item" style={{ fontWeight: n.lida ? "normal" : "bold" }}>
-            <Avatar username={n.remetente?.username ?? "?"} tamanho={32} />
+          <div key={n.id} className={`notificacao-item ${n.lida ? "" : "nao-lida"}`}>
+            <Avatar username={n.remetente?.username ?? "?"} numeroFoto={n.remetente?.numero_foto ?? null} />
             <span><strong>{n.remetente?.username}</strong> {textoAcao(n.tipo)}</span>
           </div>
         ))}
@@ -381,12 +470,12 @@ function PaginaNotificacoes() {
   );
 }
 
-//  PÁGINA: Perfil
-
 function PaginaPerfil() {
-  const [usuario,    setUsuario]    = useState(null);
-  const [posts,      setPosts]      = useState([]);
-  const [carregando, setCarregando] = useState(true);
+  const [usuario,      setUsuario]      = useState(null);
+  const [posts,        setPosts]        = useState([]);
+  const [carregando,   setCarregando]   = useState(true);
+  const [editandoFoto, setEditandoFoto] = useState(false);
+  const [salvando,     setSalvando]     = useState(false);
 
   useEffect(() => {
     async function buscar() {
@@ -402,6 +491,28 @@ function PaginaPerfil() {
     }
     buscar();
   }, []);
+
+  // Recarrega só os posts do perfil — chamado pelo FormPost após publicar
+  const buscarPostsDoPerfil = useCallback(async () => {
+    if (!usuario) return;
+    const { dados: feed, ok } = await getFeedGeral(1, "", 50);
+    if (ok) setPosts((feed.postagens ?? []).filter(p => p.autor_id === usuario.id));
+  }, [usuario]);
+
+  // Remove o post da lista local após exclusão bem-sucedida
+  function handleExcluirPost(idPost) {
+    setPosts(prev => prev.filter(p => p.id !== idPost));
+  }
+
+  async function handleEscolherFoto(numero) {
+    setSalvando(true);
+    const { dados, ok } = await atualizarPerfil({ numero_foto: numero });
+    if (ok) {
+      setUsuario(u => ({ ...u, numero_foto: numero }));
+      setEditandoFoto(false);
+    }
+    setSalvando(false);
+  }
 
   if (carregando) return (
     <div className="main-container">
@@ -421,21 +532,42 @@ function PaginaPerfil() {
 
   return (
     <div className="main-container">
-      <main className="feed-area feed-perfil">
-        {/* Cabeçalho do perfil */}
-        <div className="perfil-cabecalho parchment-box">
-          <Avatar username={usuario.username} tamanho={76} />
+      <aside className="sidebar-left">
+        <div className="perfil-cabecalho">
+          <div className="avatar-wrapper">
+            <Avatar
+              username={usuario.username}
+              numeroFoto={usuario.numero_foto ?? null}
+              className="avatar-perfil"
+            />
+            <button className="btn-trocar-foto"
+              onClick={() => setEditandoFoto(v => !v)}
+              title="Trocar foto"
+            >📷</button>
+          </div>
+
+          {editandoFoto && (
+            <div>
+              <p className="seletor-foto-title">Escolha sua foto:</p>
+              <SeletorFoto fotoAtual={usuario.numero_foto} onEscolher={handleEscolherFoto} />
+              {salvando && <p className="salvando-texto">Salvando...</p>}
+            </div>
+          )}
+
           <div className="perfil-info">
-            <p className="post-username">{usuario.username}</p>
-            <span className="post-badge-role">{usuario.role}</span>
-            <p>{usuario.bio || "Sem bio ainda."}</p>
-            <small>Entrou em {usuario.data_entrada}</small>
+            <div className="post-user-info">
+              <span className="post-username-perfil">{usuario.username}</span>
+              <span className="post-badge-role">{usuario.role}</span>
+            </div>
+            <p className="description">{usuario.bio || "Aqui é onde a biografia da pessoa vai ficar..."}</p>
+            <p className="description">Entrou em {usuario.data_entrada}</p>
           </div>
           <button className="btn-submit">EDITAR PERFIL</button>
         </div>
+      </aside>
 
-        {/* Estatísticas — valores reais do backend */}
-        <div className="perfil-stats">
+      <div className="perfil-centro">
+        <div className="perfil-stats-container">
           {[
             ["POSTS",      posts.length],
             ["SEGUINDO",   usuario.seguindo   ?? 0],
@@ -443,37 +575,43 @@ function PaginaPerfil() {
           ].map(([label, valor]) => (
             <div key={label} className="stat-box">
               <span className="stat-label">{label}</span>
-              <span className="stat-valor">{valor}</span>
+              <span className="stat-num">{valor}</span>
             </div>
           ))}
         </div>
 
-        {/* Só os posts desse usuário */}
-        <section className="posts-timeline">
-          {posts.length > 0
-            ? posts.map(post => <PostCard key={post.id} post={post} />)
-            : <p className="feed-vazio">Ainda sem posts...</p>
-          }
-        </section>
-      </main>
-
-      <aside className="sidebar-right">
-        <div className="parchment-box">
-          <h2>Tags populares</h2>
-          <ul className="tags-list">
-            {TODAS_TAGS.map(tag => (
-              <li key={tag}><a href="#">{tag}</a></li>
-            ))}
-          </ul>
+        <main className="feed-area feed-perfil-ajustado">
+          <section className="posts-timeline">
+            {posts.length > 0
+              ? posts.map(post => (
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    podeExcluir={true}
+                    onExcluir={handleExcluirPost}
+                  />
+                ))
+              : <p className="feed-vazio">Ainda sem posts...</p>
+            }
+          </section>
+        </main>
+      </div>
+      <aside className="coluna-direita-perfil">
+        <FormPost onPostar={buscarPostsDoPerfil} usuario={usuario} />
+        <div className="perfil-sidebar-tags">
+          <div className="parchment-box">
+            <h2>Tags populares</h2>
+            <ul className="tags-list">
+              {TODAS_TAGS.map(tag => (
+                <li key={tag}><a href="#">{tag}</a></li>
+              ))}
+            </ul>
+          </div>
         </div>
       </aside>
     </div>
   );
 }
-
-//  APP PRINCIPAL
-//  Controla qual página está sendo exibida com useState.
-//  (Futuramente isso seria trocado por react-router-dom)
 
 export default function App() {
   const [paginaAtual,   setPaginaAtual]   = useState(estaLogado() ? "home" : "login");
@@ -503,7 +641,6 @@ export default function App() {
 
   return (
     <>
-      {/* Navbar só aparece fora das páginas de login/cadastro */}
       {!ehPaginaAuth && (
         <Navbar
           paginaAtual={paginaAtual}
@@ -515,7 +652,7 @@ export default function App() {
 
       {paginaAtual === "login"        && <PaginaLogin        setPaginaAtual={setPaginaAtual} onLoginSucesso={onLoginSucesso} />}
       {paginaAtual === "signup"       && <PaginaCadastro     setPaginaAtual={setPaginaAtual} onLoginSucesso={onLoginSucesso} />}
-      {paginaAtual === "home"         && <PaginaHome />}
+      {paginaAtual === "home"         && <PaginaHome key={sessaoKey} />}
       {paginaAtual === "notificacoes" && <PaginaNotificacoes />}
       {paginaAtual === "perfil"       && <PaginaPerfil />}
       {(paginaAtual === "dnd" || paginaAtual === "regras") && (
@@ -529,4 +666,3 @@ export default function App() {
     </>
   );
 }
-
