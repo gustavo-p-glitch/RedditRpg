@@ -63,10 +63,10 @@ def cadastro():
     if len(senha) < 6:
         return jsonify({"erro": "Senha deve ter no mínimo 6 caracteres."}), 400
 
-    if any(u["email"] == email for u in db.usuarios):
+    if db.usuarios.find_one({"email": email}):
         return jsonify({"erro": "E-mail já cadastrado."}), 409
 
-    if any(u["username"] == username for u in db.usuarios):
+    if db.usuarios.find_one({"username": username}):
         return jsonify({"erro": "Username já em uso."}), 409
 
     novo = {
@@ -80,7 +80,9 @@ def cadastro():
         "data_entrada": datetime.now(timezone.utc).strftime("%d/%m/%Y"),
         "criado_em": datetime.now(timezone.utc).isoformat(),
     }
-    db.usuarios.append(novo)
+    db.usuarios.insert_one(novo)
+
+    novo.pop('_id', None)
 
     token = gerar_token(novo["id"])
     return jsonify(
