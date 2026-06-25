@@ -4,7 +4,7 @@ import {
   salvarToken, removerToken, estaLogado,
   getMeuPerfil, getFeedGeral, getFeedAmigos,
   curtirPost, criarPost, deletarPost, getNotificacoes, marcarNotificacoesLidas,
-  atualizarPerfil,
+  atualizarPerfil, pesquisar, seguirUsuario, getSeguindo, comentar
 } from "./api";
 
 import extraIcon from "./assets/extra.svg";
@@ -119,11 +119,54 @@ function FormPost({ onPostar, usuario }) {
   );
 }
 
-function PostCard({ post, podeExcluir = false, onExcluir }) {
+function ComentarioItem({ comentario, onVerPerfil }) {
+  const username   = comentario.autor?.username   ?? "?";
+  const role       = comentario.autor?.role       ?? "Aventureiro";
+  const numeroFoto = comentario.autor?.numero_foto ?? null;
+  const autorId    = comentario.autor?.id        ?? null;
+
+  return (
+    <div className="comentario-item">
+      <div className="post-layout">
+        <div className="post-col-esq">
+          <button 
+            className="btn-perfil" 
+            onClick={() => onVerPerfil && autorId && onVerPerfil(autorId, username)}
+          >
+            <Avatar username={username} numeroFoto={numeroFoto} />
+          </button>
+        </div>
+        
+        <div className="post-col-dir">
+          <div className="post-user-info">
+            <button 
+              className="btn-perfil" 
+              onClick={() => onVerPerfil && autorId && onVerPerfil(autorId, username)}
+            >
+              <span className="post-username">{username}</span>
+            </button>
+            <span className="post-badge-role">{role}</span>
+          </div>
+          
+          <div className="comentario-conteudo">
+            <p>{comentario.texto}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PostCard({ post, podeExcluir = false, onExcluir, onVerPerfil }) {
   const [likes, setLikes]           = useState(post.likes);
   const [curtido, setCurtido]       = useState(post.curtido_por_mim ?? false);
   const [carregando, setCarregando] = useState(false);
   const [menuAberto, setMenuAberto] = useState(false);
+
+  const [comentariosAbertos, setComentariosAbertos] = useState(false);
+  const [comentarios, setComentarios]               = useState(post.comentarios ?? []);
+  const [novoComentario, setNovoComentario]         = useState("");
+  const [enviandoComentario, setEnviandoComentario] = useState(false);
 
   async function handleCurtir() {
     if (carregando) return;
@@ -142,23 +185,57 @@ function PostCard({ post, podeExcluir = false, onExcluir }) {
     if (ok && onExcluir) onExcluir(post.id);
   }
 
+  async function handleComentar() {
+    if (!novoComentario.trim() || enviandoComentario) return;
+    setEnviandoComentario(true);
+    const { dados, ok } = await comentar(post.id, novoComentario);
+    if (ok) {
+      setComentarios(prev => [...prev, dados.comentario]);
+      setNovoComentario(""); 
+    }
+    setEnviandoComentario(false);
+  }
+
   const username   = post.autor?.username   ?? post.username ?? "?";
   const role       = post.autor?.role       ?? post.role     ?? "";
   const numeroFoto = post.autor?.numero_foto ?? null;
+  const autorId    = post.autor?.id        ?? null;
+
+  function irParaPerfil() {
+    if (onVerPerfil && autorId) onVerPerfil(autorId, username);
+  }
 
   return (
     <article className="post-card">
       <div className="post-layout">
         <div className="post-col-esq">
-          <Avatar username={username} numeroFoto={numeroFoto} />
+          <button className="btn-perfil" onClick={irParaPerfil}>
+            <Avatar username={username} numeroFoto={numeroFoto} />
+          </button>
         </div>
 
         <div className="post-col-dir">
-          <div className="post-user-info">
-            <span className="post-username">{username}</span>
-            <span className="post-badge-role">{role}</span>
+          <div className="post-header">
+            <div className="post-user-info">
+              <button className="btn-perfil" onClick={irParaPerfil}>
+                <span className="post-username">{username}</span>
+              </button>
+              <span className="post-badge-role">{role}</span>
+            </div>
+            {podeExcluir && (
+              <div className="post-menu">
+                <button className="btn-post-menu" onClick={() => setMenuAberto(v => !v)}>
+                  <img src={extraIcon} alt="opções" className="post-menu-icon" />
+                </button>
+                {menuAberto && (
+                  <button className="post-menu-opcao post-menu-excluir" onClick={handleExcluir}>
+                    Excluir
+                  </button>
+                )}
+              </div>
+            )}
           </div>
-
+    
           <div className="post-content">
             <p>{post.conteudo}</p>
             <div className="post-tags-container">
@@ -176,23 +253,46 @@ function PostCard({ post, podeExcluir = false, onExcluir }) {
             >
               ❤️ {likes}
             </button>
-            <button className="btn-action">
-              💬 {post.comments ?? 0}
+            <button 
+              className={`btn-action ${comentariosAbertos ? "ativo" : ""}`}
+              onClick={() => setComentariosAbertos(v => !v)}
+            >
+              💬 {comentarios.length}
             </button>
           </div>
 
-          {podeExcluir && (
-            <div className="post-menu">
-              <button className="btn-post-menu" onClick={() => setMenuAberto(v => !v)}>
-                <img src={extraIcon} alt="opções" className="post-menu-icon" />
-              </button>
-              {menuAberto && (
-                <button className="post-menu-opcao post-menu-excluir" onClick={handleExcluir}>
-                  Excluir
+          {comentariosAbertos && (
+            <div className="post-comentarios-section">
+              <div className="comentarios-lista">
+                {comentarios.map(c => (
+                  <ComentarioItem 
+                    key={c.id} 
+                    comentario={c} 
+                    onVerPerfil={onVerPerfil} 
+                  />
+                ))}
+              </div>
+              
+              <div className="form-novo-comentario">
+                <input 
+                  type="text" 
+                  className="input-comentario"
+                  placeholder="Deixe uma resposta..." 
+                  value={novoComentario}
+                  onChange={e => setNovoComentario(e.target.value)}
+                  onKeyDown={e => { if(e.key === "Enter") handleComentar() }}
+                />
+                <button 
+                  className="btn-submit" 
+                  onClick={handleComentar} 
+                  disabled={enviandoComentario || !novoComentario.trim()}
+                >
+                  {enviandoComentario ? "..." : "Responder"}
                 </button>
-              )}
+              </div>
             </div>
           )}
+
         </div>
       </div>
     </article>
@@ -203,8 +303,6 @@ function Navbar({ paginaAtual, setPaginaAtual, onLogout, notifNaoLidas = 0 }) {
   const links = [
     { id: "home",         label: "Início"       },
     { id: "notificacoes", label: `Notificações${notifNaoLidas > 0 ? ` (${notifNaoLidas})` : ""}` },
-    { id: "dnd",          label: "DnD"           },
-    { id: "regras",       label: "Regras"        },
     { id: "perfil",       label: "Perfil"        },
   ];
 
@@ -239,7 +337,7 @@ function Navbar({ paginaAtual, setPaginaAtual, onLogout, notifNaoLidas = 0 }) {
   );
 }
 
-function PaginaHome() {
+function PaginaHome({ onVerPerfil }) {
   const [filtroFeed, setFiltroFeed] = useState("para-voce");
   const [filtroTag,  setFiltroTag]  = useState("");
   const [posts,      setPosts]      = useState([]);
@@ -283,7 +381,7 @@ function PaginaHome() {
         <section className="posts-timeline">
           {carregando && <p className="feed-vazio">Carregando posts...</p>}
           {!carregando && posts.length === 0 && <p className="feed-vazio">Nenhum post encontrado.</p>}
-          {!carregando && posts.map(post => <PostCard key={post.id} post={post} />)}
+          {!carregando && posts.map(post => <PostCard key={post.id} post={post} onVerPerfil={onVerPerfil} />)}
         </section>
       </main>
 
@@ -430,8 +528,44 @@ function PaginaCadastro({ setPaginaAtual, onLoginSucesso }) {
   );
 }
 
-function PaginaNotificacoes() {
+function ItemNotificacao({ n, onVerPerfil, textoAcao }) {
+  const [seguindo, setSeguindo] = useState(n.remetente?.seguindo_eu ?? false);
+
+  async function handleSeguir() {
+    if (!n.remetente?.id) return;
+    const { dados, ok } = await seguirUsuario(n.remetente.id);
+    if (ok) setSeguindo(dados.seguindo);
+  }
+
+  return (
+    <div className={`notificacao-item ${n.lida ? "" : "nao-lida"}`}>
+      <div className="notificacao-info">
+        <button className="btn-perfil" onClick={() => onVerPerfil && n.remetente?.id && onVerPerfil(n.remetente.id, n.remetente.username)}>
+          <Avatar username={n.remetente?.username ?? "?"} numeroFoto={n.remetente?.numero_foto ?? null} />
+        </button>
+        <span>
+          <button className="btn-perfil" onClick={() => onVerPerfil && n.remetente?.id && onVerPerfil(n.remetente.id, n.remetente.username)}>
+            <span className="post-username">{n.remetente?.username}</span>
+          </button>
+          {" "}{textoAcao(n.tipo)}
+        </span>
+      </div>
+
+      {n.tipo === "seguiu" && (
+        <button
+          className={`btn-submit ${seguindo ? "following" : ""}`}
+          onClick={handleSeguir}
+        >
+          {seguindo ? "UNFOLLOW" : "FOLLOW"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function PaginaNotificacoes({ onVerPerfil }) {
   const [notificacoes, setNotificacoes] = useState([]);
+  const [seguindo, setSeguindo] = useState([]);
   const [carregando,   setCarregando]   = useState(true);
 
   useEffect(() => {
@@ -441,6 +575,12 @@ function PaginaNotificacoes() {
         setNotificacoes(dados.notificacoes ?? []);
         await marcarNotificacoesLidas();
       }
+      
+      const { dados: dadosSeguindo, ok: okSeguindo } = await getSeguindo();
+      if (okSeguindo) {
+        setSeguindo(dadosSeguindo.seguindo ?? []);
+      }
+
       setCarregando(false);
     }
     buscar();
@@ -454,18 +594,48 @@ function PaginaNotificacoes() {
   }
 
   return (
-    <div className="main-container">
-      <main className="feed-area feed-centro">
+    <div className="main-container notificacoes-main-container">
+      <main className="notificacoes-box">
         <h1 className="page-title">Notificações</h1>
-        {carregando && <p className="feed-vazio">Carregando...</p>}
         {!carregando && notificacoes.length === 0 && <p className="feed-vazio">Nenhuma notificação.</p>}
         {notificacoes.map(n => (
-          <div key={n.id} className={`notificacao-item ${n.lida ? "" : "nao-lida"}`}>
-            <Avatar username={n.remetente?.username ?? "?"} numeroFoto={n.remetente?.numero_foto ?? null} />
-            <span><strong>{n.remetente?.username}</strong> {textoAcao(n.tipo)}</span>
-          </div>
+          <ItemNotificacao
+            key={n.id}
+            n={n}
+            onVerPerfil={onVerPerfil}
+            textoAcao={textoAcao}
+          />
         ))}
       </main>
+
+      <aside className="box-seguindo">
+        <div className="parchment-box">
+          <h2>Seguindo</h2>
+          <ul className="lista-seguindo-notif">
+            {seguindo.length > 0 ? (
+              seguindo.map(user => (
+                <li key={user.id}>
+                  <div className="post-user-info">
+                    <a 
+                      href="#" 
+                      className="post-username"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (onVerPerfil) onVerPerfil(user.id, user.username);
+                      }}
+                    >
+                      {user.username}
+                    </a>
+                    <span className="post-badge-role">{user.role}</span>
+                  </div>
+                </li>
+              ))
+            ) : (
+              <li><p>Ninguém ainda...</p></li>
+            )}
+          </ul>
+        </div>
+      </aside>
     </div>
   );
 }
@@ -492,14 +662,12 @@ function PaginaPerfil() {
     buscar();
   }, []);
 
-  // Recarrega só os posts do perfil — chamado pelo FormPost após publicar
   const buscarPostsDoPerfil = useCallback(async () => {
     if (!usuario) return;
     const { dados: feed, ok } = await getFeedGeral(1, "", 50);
     if (ok) setPosts((feed.postagens ?? []).filter(p => p.autor_id === usuario.id));
   }, [usuario]);
 
-  // Remove o post da lista local após exclusão bem-sucedida
   function handleExcluirPost(idPost) {
     setPosts(prev => prev.filter(p => p.id !== idPost));
   }
@@ -531,7 +699,7 @@ function PaginaPerfil() {
   );
 
   return (
-    <div className="main-container">
+    <div className="main-container perfil-main-container">
       <aside className="sidebar-left">
         <div className="perfil-cabecalho">
           <div className="avatar-wrapper">
@@ -613,10 +781,132 @@ function PaginaPerfil() {
   );
 }
 
+function PaginaPerfilOutro({ idUsuario, usernameUsuario, onVerPerfil }) {
+  const [usuario,    setUsuario]    = useState(null);
+  const [posts,      setPosts]      = useState([]);
+  const [seguindo,   setSeguindo]   = useState(false);
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    async function buscar() {
+      // busca dados do usuário pelo username via pesquisar
+      const { dados, ok } = await pesquisar(usernameUsuario, "usuarios");
+      if (ok) {
+        const encontrado = (dados.resultado?.usuarios?.itens ?? [])
+          .find(u => u.id === idUsuario);
+        if (encontrado) {
+          setUsuario(encontrado);
+          setSeguindo(encontrado.seguindo_eu ?? false);
+        }
+      }
+      // busca os posts do feed e filtra pelo autor
+      const { dados: feed, ok: okFeed } = await getFeedGeral(1, "", 50);
+      if (okFeed) {
+        setPosts((feed.postagens ?? []).filter(p => p.autor_id === idUsuario));
+      }
+      setCarregando(false);
+    }
+    buscar();
+  }, [idUsuario, usernameUsuario]);
+
+  async function handleSeguir() {
+    const { dados, ok } = await seguirUsuario(idUsuario);
+    if (ok) setSeguindo(dados.seguindo);
+  }
+
+  if (carregando) return (
+    <div className="main-container perfil-main-container">
+      <main className="feed-area feed-perfil">
+        <p className="feed-vazio">Carregando perfil...</p>
+      </main>
+    </div>
+  );
+
+  if (!usuario) return (
+    <div className="main-container">
+      <main className="feed-area feed-perfil">
+        <p className="feed-vazio">Usuário não encontrado.</p>
+      </main>
+    </div>
+  );
+
+  return (
+    <div className="main-container perfil-main-container">
+      <aside className="sidebar-left">
+        <div className="perfil-cabecalho">
+          <Avatar
+            username={usuario.username}
+            numeroFoto={usuario.numero_foto ?? null}
+            className="avatar-perfil"
+          />
+          <div className="perfil-info">
+            <div className="post-user-info">
+              <span className="post-username-perfil">{usuario.username}</span>
+              <span className="post-badge-role">{usuario.role}</span>
+            </div>
+            <p className="description">{usuario.bio || "Sem bio ainda."}</p>
+            <p className="description">Entrou em {usuario.data_entrada}</p>
+          </div>
+          <button 
+            className={`btn-submit ${seguindo ? "following" : ""}`} 
+            onClick={handleSeguir}
+          >
+            {seguindo ? "UNFOLLOW" : "FOLLOW"}
+          </button>
+        </div>
+      </aside>
+
+      <div className="perfil-centro">
+        <div className="perfil-stats-container">
+          {[
+            ["POSTS",      posts.length],
+            ["SEGUIDORES", usuario.seguidores ?? 0],
+          ].map(([label, valor]) => (
+            <div key={label} className="stat-box">
+              <span className="stat-label">{label}</span>
+              <span className="stat-num">{valor}</span>
+            </div>
+          ))}
+        </div>
+
+        <main className="feed-area feed-perfil-ajustado">
+          <section className="posts-timeline">
+            {posts.length > 0
+              ? posts.map(post => (
+                  <PostCard key={post.id} post={post} onVerPerfil={onVerPerfil} />
+                ))
+              : <p className="feed-vazio">Ainda sem posts...</p>
+            }
+          </section>
+        </main>
+      </div>
+
+      <aside className="coluna-direita-perfil">
+        <div className="perfil-sidebar-tags">
+          <div className="parchment-box">
+            <h2>Tags populares</h2>
+            <ul className="tags-list">
+              {TODAS_TAGS.map(tag => (
+                <li key={tag}><a href="#">{tag}</a></li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
 export default function App() {
-  const [paginaAtual,   setPaginaAtual]   = useState(estaLogado() ? "home" : "login");
-  const [notifNaoLidas, setNotifNaoLidas] = useState(0);
-  const [sessaoKey,     setSessaoKey]     = useState(0);
+  const [paginaAtual,    setPaginaAtual]    = useState(estaLogado() ? "home" : "login");
+  const [notifNaoLidas,  setNotifNaoLidas]  = useState(0);
+  const [sessaoKey,      setSessaoKey]      = useState(0);
+  const [perfilVisitado, setPerfilVisitado] = useState(null); // { id, username }
+
+  function handleVerPerfil(id, username) {
+    setPerfilVisitado({ id, username });
+    setPaginaAtual("perfil-outro");
+  }
 
   function onLoginSucesso() {
     setSessaoKey(k => k + 1);
@@ -652,9 +942,16 @@ export default function App() {
 
       {paginaAtual === "login"        && <PaginaLogin        setPaginaAtual={setPaginaAtual} onLoginSucesso={onLoginSucesso} />}
       {paginaAtual === "signup"       && <PaginaCadastro     setPaginaAtual={setPaginaAtual} onLoginSucesso={onLoginSucesso} />}
-      {paginaAtual === "home"         && <PaginaHome key={sessaoKey} />}
-      {paginaAtual === "notificacoes" && <PaginaNotificacoes />}
+      {paginaAtual === "home"         && <PaginaHome key={sessaoKey} onVerPerfil={handleVerPerfil} />}
+      {paginaAtual === "notificacoes" && <PaginaNotificacoes onVerPerfil={handleVerPerfil} />}
       {paginaAtual === "perfil"       && <PaginaPerfil />}
+      {paginaAtual === "perfil-outro" && perfilVisitado && (
+        <PaginaPerfilOutro
+          idUsuario={perfilVisitado.id}
+          usernameUsuario={perfilVisitado.username}
+          onVerPerfil={handleVerPerfil}
+        />
+      )}
       {(paginaAtual === "dnd" || paginaAtual === "regras") && (
         <div className="main-container">
           <main className="feed-area feed-centro">
