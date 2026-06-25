@@ -22,10 +22,6 @@
 background-color: #EBE6D5
 }
 
-/* .feed-centro
-.feed-perfil
- */
-
 .navbar {
   background-color: #04305D;
   display: flex;
@@ -51,6 +47,7 @@ h2, .page-title{
   color: #1A1A1A;
   font-size: 37.32px;
   margin: 0;
+  font-weight: normal;
 }
 /*Se for Dnd é diferente porque um certo alguém quis (eu)*/
 h2::first-letter, .page-title::first-letter {
@@ -82,6 +79,7 @@ h2::first-letter, .page-title::first-letter {
   font-size: 88pt;
   display: flex;
   justify-content: center;
+  font-weight: normal;
 }
 
 .brand-banner {
@@ -105,10 +103,13 @@ h2::first-letter, .page-title::first-letter {
   color: #C9BEA3;
   opacity: 1; 
 }
-/* Posts:     .posts-timeline  .post-card .post-avatar .post-tag
-              .post-actions .feed-vazio*/
+/* Posts: .posts-timeline  .post-card .post-avatar .post-tag .post-actions*/
 /*Posts*/
-
+.feed-vazio {
+  font-family: GeorgiaProCondLight, serif;
+  color: #1A1A1A;
+  font-size: 16px;
+}
 .post-content p {
   margin: 0; 
 }
@@ -117,8 +118,8 @@ h2::first-letter, .page-title::first-letter {
   align-items: center;
   gap: 0.2cm;
   margin-top: 0.2cm;
-  margin-bottom: 0.2cm;
 }
+
 .post-tags-container {
   margin-top: 0.2cm;
 }
@@ -231,8 +232,8 @@ h2::first-letter, .page-title::first-letter {
   font-family: GermanikaPersonalUse, serif;
   font-size: 88pt;
 }
-/*Filtros:      .feed-header .select-small
-Auth:         .auth-page  .auth-banner */
+/*Filtros: .feed-header .select-small
+Auth: .auth-page  .auth-banner */
 /* Autenticação */
 body{
   background-color: #EBE6D5;
@@ -320,6 +321,9 @@ a {
   border: none;
   width: max-content;
 }
+.btn-submit.following {
+  background-color: #D3230C;
+}
 
 .form-footer {
   font-family: GeorgiaProCondLight, serif;
@@ -327,13 +331,58 @@ a {
   margin: 0.4cm 0.2cm 0.2cm 0.2cm;
   text-align: center;
 }
-/*Notificações: .page-title*/
+/*Notificações*/
 .notificacao-item{
   font-family: GeorgiaProCondLight, serif;
   color: #1A1A1A;
   font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
-
+.notificacao-info {
+  display: flex;
+  align-items: center;
+  gap: 0.2cm;
+}
+.notificacao-item .avatar-img {
+  flex-shrink: 0;
+}
+.notificacoes-main-container {
+  position: absolute;
+  top: 2.51cm;
+  left: 8cm;
+}
+.notificacoes-box {
+  font-family: GeorgiaProCondLight, serif;
+    background-color: #F1EEE3;
+    border: 2px solid #04305D;
+    color: #1A1A1A;
+    width: 16cm;
+    font-size: 16px;
+    position: relative;
+    padding: 0.25cm;
+}
+.notificacoes-box::before,
+.notificacoes-box::after {
+  content: "";
+  position: absolute;
+  left: -3px; 
+  right: -3px;
+  height: 10px;
+}
+.notificacoes-box::before {
+  top: -10px; 
+  background:
+    linear-gradient(to top left, #04305D 50%, transparent 50%) left top / 25px 10px no-repeat,
+    linear-gradient(to top right, #04305D 50%, transparent 50%) right top / 25px 10px no-repeat;
+}
+.notificacoes-box::after {
+  bottom: -10px; 
+  background:
+    linear-gradient(to bottom left, #04305D 50%, transparent 50%) left bottom / 25px 10px no-repeat,
+    linear-gradient(to bottom right, #04305D 50%, transparent 50%) right bottom / 25px 10px no-repeat;
+}
 /*Perfil*/
 .stat-num{
   font-family: GeorgiaProCondLight, serif;
@@ -416,6 +465,24 @@ a {
   color: #1A1A1A;
 }
 /* posicionando */
+.box-seguindo {
+  position: fixed;
+  top: 2.51cm;
+  right: 8cm;
+}
+.lista-seguindo-notif {
+  padding-left: 0.5cm;
+  margin-top: 0.2cm;
+}
+.lista-seguindo-notif li {
+  margin-bottom: 0.2cm;
+}
+
+.perfil-main-container .sidebar-left,
+.perfil-main-container .perfil-centro,
+.perfil-main-container .coluna-direita-perfil {
+  top: 2.51cm;
+}
 .auth-banner {
   position:absolute;
   left: 2.35cm;
@@ -491,7 +558,6 @@ textarea::placeholder{
   font-family: GeorgiaProCondLight, serif;
   cursor: pointer;
   font-size: 11pt;
-  transition: background-color 0.2s;
 }
 
 .tag-btn.selected {
@@ -499,16 +565,50 @@ textarea::placeholder{
   color: #F1EEE3;
 }
 
+.form-post-tags{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.05cm;
+  align-items: center;
+  margin-bottom: 0.2cm;
+}
+
 /*Teste*/
+.post-menu {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.btn-perfil {
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+}
 .btn-post-menu {
   border: none;
   background: none;
+  cursor: pointer;
 }
 .post-menu-excluir{
   border: none;
   font-family: GeorgiaProCondLight, serif;
   color: #1A1A1A;
   background: none;
+  position: absolute;
+  right: 0;
+  top: 100%;
+  cursor: pointer;
+}
+.post-header{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 0.2cm;
 }
 .post-menu-icon{
   width: 0.36cm;
