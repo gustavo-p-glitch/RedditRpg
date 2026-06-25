@@ -48,7 +48,7 @@ def autenticar(f):
         if not payload:
             return jsonify({"erro": "Token inválido ou expirado."}), 401
 
-        usuario = next((u for u in db.usuarios if u["id"] == payload["id"]), None)
+        usuario = db.usuarios.find_one({"id": payload["id"]})
         if not usuario:
             return jsonify({"erro": "Usuário não encontrado."}), 401
 
