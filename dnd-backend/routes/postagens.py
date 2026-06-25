@@ -14,38 +14,37 @@ TAGS_VALIDAS = {"Mago", "Campanha", "DMs", "Homebrew", "Classes", "Fichas", "Ra�
 
 def enriquecer_post(post: dict, uid_logado: str) -> dict:
     """Adiciona dados do autor, curtidas e comentários ao post."""
-    autor = next((u for u in db.usuarios if u["id"] == post["autor_id"]), None)
-    total_curtidas = sum(1 for c in db.curtidas if c["post_id"] == post["id"])
-    curtido = any(
-        c
-        for c in db.curtidas
-        if c["post_id"] == post["id"] and c["usuario_id"] == uid_logado
-    )
-    coments = [
-        {
-            **c,
-            "autor": next(
-                (
-                    {"id": u["id"], "nome": u["nome"], "username": u["username"]}
-                    for u in db.usuarios
-                    if u["id"] == c["autor_id"]
-                ),
-                None,
-            ),
-        }
-        for c in db.comentarios
-        if c["post_id"] == post["id"]
-    ]
+    
+    autor = db.usuarios.find_one({"id": post["autor_id"]})
+    
+    total_curtidas = db.curtidas.count_documents({"post_id": post["id"]})
+    curtido = db.curtidas.find_one({"post_id": post["id"], "usuario_id": uid_logado}) is not None
+    
+    coments = []
+    for c in db.comentarios.find({"post_id": post["id"]}):
+        autor_comentario = db.usuarios.find_one({"id": c["autor_id"]})
+        
+        c.pop('_id', None) 
+        
+        c["autor"] = {
+            "id": autor_comentario["id"],
+            "nome": autor_comentario["nome"],
+            "username": autor_comentario["username"]
+        } if autor_comentario else None
+        
+        coments.append(c)
+
+    post_limpo = post.copy()
+    post_limpo.pop('_id', None)
+
     return {
-        **post,
+        **post_limpo,
         "autor": {
             "id": autor["id"],
             "nome": autor["nome"],
             "username": autor["username"],
             "role": autor["role"],
-        }
-        if autor
-        else None,
+        } if autor else None,
         "likes": total_curtidas,
         "curtido_por_mim": curtido,
         "comments": len(coments),
@@ -94,7 +93,7 @@ def criar_post():
         "tags": tags_filtradas,
         "criado_em": datetime.now(timezone.utc).isoformat(),
     }
-    db.postagens.append(post)
+    db.postagens.insert_one(post)
 
     return jsonify(
         {
@@ -183,7 +182,7 @@ def feed_amigos():
 @postagens_bp.delete("/<id_post>")
 @autenticar
 def deletar_post(id_post):
-    post = next((p for p in db.postagens if p["id"] == id_post), None)
+    post = db.postagens.find_one({"id": payload["id_post"]})
     if not post:
         return jsonify({"erro": "Postagem não encontrada."}), 404
 
@@ -203,7 +202,7 @@ def deletar_post(id_post):
 @postagens_bp.post("/<id_post>/curtir")
 @autenticar
 def curtir(id_post):
-    post = next((p for p in db.postagens if p["id"] == id_post), None)
+    post = db.postagens.find_one({"id": payload["id_post"]})
     if not post:
         return jsonify({"erro": "Postagem não encontrada."}), 404
 
@@ -218,7 +217,7 @@ def curtir(id_post):
 
     if curtida:
         db.curtidas.remove(curtida)
-        total = sum(1 for c in db.curtidas if c["post_id"] == id_post)
+        total = db.curtidas.count_documents({"post_id": id_post})
         return jsonify(
             {"mensagem": "Curtida removida.", "curtido": False, "total_curtidas": total}
         )
@@ -233,7 +232,7 @@ def curtir(id_post):
     )
     criar_notificacao(post["autor_id"], request.usuario_id, "curtiu", id_post)
 
-    total = sum(1 for c in db.curtidas if c["post_id"] == id_post)
+    total = db.curtidas.count_documents({"post_id": id_post})
     return jsonify(
         {"mensagem": "Postagem curtida!", "curtido": True, "total_curtidas": total}
     ), 201
@@ -245,7 +244,7 @@ def curtir(id_post):
 @postagens_bp.post("/<id_post>/comentario")
 @autenticar
 def comentar(id_post):
-    post = next((p for p in db.postagens if p["id"] == id_post), None)
+    post = db.postagens.find_one({"id": payload["id_post"]})
     if not post:
         return jsonify({"erro": "Postagem não encontrada."}), 404
 
@@ -268,7 +267,7 @@ def comentar(id_post):
     db.comentarios.append(comentario)
     criar_notificacao(post["autor_id"], request.usuario_id, "comentou", id_post)
 
-    autor = next((u for u in db.usuarios if u["id"] == request.usuario_id), None)
+    autor = db.usuarios.find_one({"id": request.usuario_id})
     return jsonify(
         {
             "mensagem": "Comentário adicionado.",
@@ -309,7 +308,7 @@ def deletar_comentario(id_post):
     if not comentario:
         return jsonify({"erro": "Comentário não encontrado."}), 404
 
-    post = next((p for p in db.postagens if p["id"] == id_post), None)
+    post = db.postagens.find_one({"id": payload["id_post"]})
     autor_do_post = post["autor_id"] if post else None
 
     if (
