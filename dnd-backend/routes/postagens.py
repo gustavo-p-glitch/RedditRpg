@@ -55,7 +55,7 @@ def enriquecer_post(post: dict, uid_logado: str) -> dict:
 def criar_notificacao(destinatario_id, remetente_id, tipo, post_id=None):
     if destinatario_id == remetente_id:
         return
-    db.notificacoes.append(
+    db.notificacoes.insert_one(
         {
             "id": str(uuid.uuid4()),
             "destinatario_id": destinatario_id,
@@ -206,14 +206,7 @@ def curtir(id_post):
     if not post:
         return jsonify({"erro": "Postagem não encontrada."}), 404
 
-    curtida = next(
-        (
-            c
-            for c in db.curtidas
-            if c["post_id"] == id_post and c["usuario_id"] == request.usuario_id
-        ),
-        None,
-    )
+    curtida = db.curtidas.find_one( {"post_id": id_post, "usuario_id": request.usuario_id} )
 
     if curtida:
         db.curtidas.remove(curtida)
@@ -222,7 +215,7 @@ def curtir(id_post):
             {"mensagem": "Curtida removida.", "curtido": False, "total_curtidas": total}
         )
 
-    db.curtidas.append(
+    db.curtidas.insert_one(
         {
             "id": str(uuid.uuid4()),
             "post_id": id_post,
@@ -264,7 +257,8 @@ def comentar(id_post):
         "texto": texto,
         "criado_em": datetime.now(timezone.utc).isoformat(),
     }
-    db.comentarios.append(comentario)
+    db.comentarios.insert_one(comentario)
+    comentario.pop('_id', None)
     criar_notificacao(post["autor_id"], request.usuario_id, "comentou", id_post)
 
     autor = db.usuarios.find_one({"id": request.usuario_id})
