@@ -114,15 +114,20 @@ def feed_geral():
     tag = request.args.get("tag", "")
     offset = (pagina - 1) * limite
 
-    posts = sorted(db.postagens, key=lambda p: p["criado_em"], reverse=True)
-
+    filtro = {}
     if tag:
-        posts = [p for p in posts if tag in p.get("tags", [])]
+        filtro["tags"] = tag
 
-    total = len(posts)
-    posts_paginados = [
-        enriquecer_post(p, request.usuario_id) for p in posts[offset : offset + limite]
-    ]
+    total = db.postagens.count_documents(filtro)
+
+    cursor = (
+        db.postagens.find(filtro)
+        .sort("criado_em", -1)
+        .skip(offset)
+        .limit(limite)
+    )
+
+    posts_paginados = [enriquecer_post(p, request.usuario_id) for p in cursor]
 
     return jsonify(
         {
@@ -145,25 +150,25 @@ def feed_amigos():
     tag = request.args.get("tag", "")
     offset = (pagina - 1) * limite
 
-    seguindo_ids = {
-        s["seguindo_id"]
-        for s in db.seguidores
-        if s["seguidor_id"] == request.usuario_id
-    }
-    seguindo_ids.add(request.usuario_id)  # inclui posts próprios
+    seguindo_cursor = db.seguidores.find({"seguidor_id": request.usuario_id}, {"seguindo_id": 1})
+    seguindo_ids = [s["seguindo_id"] for s in seguindo_cursor]
+    seguindo_ids.append(request.usuario_id)
 
-    posts = sorted(
-        [p for p in db.postagens if p["autor_id"] in seguindo_ids],
-        key=lambda p: p["criado_em"],
-        reverse=True,
+    filtro = {"autor_id": {"$in": seguindo_ids}}
+    if tag:
+        filtro["tags"] = tag
+
+    total = db.postagens.count_documents(filtro)
+
+    cursor = (
+        db.postagens.find(filtro)
+        .sort("criado_em", -1) # -1 for newest first
+        .skip(offset)
+        .limit(limite)
     )
 
-    if tag:
-        posts = [p for p in posts if tag in p.get("tags", [])]
-
-    total = len(posts)
     posts_paginados = [
-        enriquecer_post(p, request.usuario_id) for p in posts[offset : offset + limite]
+        enriquecer_post(p, request.usuario_id) for p in cursor
     ]
 
     return jsonify(
@@ -291,14 +296,8 @@ def deletar_comentario(id_post):
     if not comentario_id:
         return jsonify({"erro": "Informe o comentario_id no body."}), 400
 
-    comentario = next(
-        (
-            c
-            for c in db.comentarios
-            if c["id"] == comentario_id and c["post_id"] == id_post
-        ),
-        None,
-    )
+    comentario = db.comentarios.find_one({"id": comentario_id, "post_id": id_post})
+    
     if not comentario:
         return jsonify({"erro": "Comentário não encontrado."}), 404
 
