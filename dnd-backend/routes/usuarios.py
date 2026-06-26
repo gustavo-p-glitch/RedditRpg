@@ -18,9 +18,9 @@ def usuario_publico(u: dict) -> dict:
 
 def stats_usuario(uid: str) -> dict:
     return {
-        "total_postagens": sum(1 for p in db.postagens if p["autor_id"] == uid),
-        "seguidores": sum(1 for s in db.seguidores if s["seguindo_id"] == uid),
-        "seguindo": sum(1 for s in db.seguidores if s["seguidor_id"] == uid),
+        "total_postagens": db.postagens.count_documents({"autor_id": uid}),
+        "seguidores": db.seguidores.count_documents({"seguindo_id": uid}),
+        "seguindo": db.seguidores.count_documents({"seguidor_id": uid}),
     }
 
 
@@ -102,15 +102,16 @@ def login():
     if not email or not senha:
         return jsonify({"erro": "E-mail e senha são obrigatórios."}), 400
 
-    usuario = db.usuarios.find_one( {"email": email} )
+    usuario = db.usuarios.find_one({"email": email})
     if not usuario or not verificar_senha(senha, usuario["senha_hash"]):
         return jsonify({"erro": "Credenciais inválidas."}), 401
 
     token = gerar_token(usuario["id"])
+    usuario.pop('_id', None)
     return jsonify(
         {
             "token": token,
-            "usuario": {**usuario_publico(usuario), **stats_usuario(usuario["id"])},
+            "mensagem": "Login realizado."
         }
     )
 
@@ -121,7 +122,9 @@ def login():
 @usuarios_bp.get("/meu-perfil")
 @autenticar
 def meu_perfil_get():
-    usuario = next((u for u in db.usuarios if u["id"] == request.usuario_id), None)
+    usuario = db.usuarios.find_one({"id": request.usuario_id})
+    if usuario:
+        usuario.pop('_id', None)
     return jsonify({**usuario_publico(usuario), **stats_usuario(request.usuario_id)})
 
 
@@ -132,34 +135,41 @@ def meu_perfil_get():
 @autenticar
 def meu_perfil_put():
     dados = request.get_json(silent=True) or {}
-    usuario = next((u for u in db.usuarios if u["id"] == request.usuario_id), None)
+    usuario = db.usuarios.find_one({"id": request.usuario_id})
+
+    if not usuario:
+        return jsonify({"erro": "Usuário não encontrado."}), 404
+
+    campos_atualizacao = {}
 
     if "nome" in dados and dados["nome"].strip():
-        usuario["nome"] = dados["nome"].strip()
+        campos_atualizacao["nome"] = dados["nome"].strip()
 
     if "bio" in dados:
-        usuario["bio"] = dados["bio"].strip()
+        campos_atualizacao["bio"] = dados["bio"].strip()
 
     if "role" in dados and dados["role"].strip():
-        usuario["role"] = dados["role"].strip()
+        campos_atualizacao["role"] = dados["role"].strip()
 
     if "username" in dados:
         novo_username = dados["username"].strip().lower()
         if novo_username != usuario["username"]:
-            if any(
-                u["username"] == novo_username and u["id"] != request.usuario_id
-                for u in db.usuarios
-            ):
+            if db.usuarios.find_one({"username": novo_username, "id": {"$ne": request.usuario_id}}):
                 return jsonify({"erro": "Username já em uso."}), 409
-            usuario["username"] = novo_username
+            campos_atualizacao["username"] = novo_username
 
     if "nova_senha" in dados:
         if not verificar_senha(dados.get("senha_atual", ""), usuario["senha_hash"]):
             return jsonify({"erro": "Senha atual incorreta."}), 401
         if len(dados["nova_senha"]) < 6:
             return jsonify({"erro": "Nova senha deve ter no mínimo 6 caracteres."}), 400
-        usuario["senha_hash"] = hash_senha(dados["nova_senha"])
+        campos_atualizacao["senha_hash"] = hash_senha(dados["nova_senha"])
 
+    if campos_atualizacao:
+        db.usuarios.update_one({"id": request.usuario_id}, {"$set": campos_atualizacao})
+        usuario = db.usuarios.find_one({"id": request.usuario_id})
+
+    usuario.pop('_id', None)
     return jsonify(
         {"mensagem": "Perfil atualizado.", "usuario": usuario_publico(usuario)}
     )
@@ -172,29 +182,36 @@ def meu_perfil_put():
 @autenticar
 def meu_perfil_delete():
     uid = request.usuario_id
-    db.usuarios[:] = [u for u in db.usuarios if u["id"] != uid]
+    posts_do_usuario = db.postagens.find({"autor_id": uid}, {"id": 1})
+    posts_ids = [p["id"] for p in posts_do_usuario]
 
-    posts_ids = {p["id"] for p in db.postagens if p["autor_id"] == uid}
-    db.postagens[:] = [p for p in db.postagens if p["autor_id"] != uid]
-    db.curtidas[:] = [
-        c
-        for c in db.curtidas
-        if c["usuario_id"] != uid and c["post_id"] not in posts_ids
-    ]
-    db.comentarios[:] = [
-        c
-        for c in db.comentarios
-        if c["autor_id"] != uid and c["post_id"] not in posts_ids
-    ]
-    db.seguidores[:] = [
-        s for s in db.seguidores if s["seguidor_id"] != uid and s["seguindo_id"] != uid
-    ]
-    db.notificacoes[:] = [
-        n
-        for n in db.notificacoes
-        if n["destinatario_id"] != uid and n["remetente_id"] != uid
-    ]
-
+    db.usuarios.delete_one({"id": uid})
+    db.postagens.delete_many({"autor_id": uid})
+    db.curtidas.delete_many({
+        "$or": [
+            {"usuario_id": uid},
+            {"post_id": {"$in": posts_ids}}
+        ]
+    })
+    db.comentarios.delete_many({
+        "$or": [
+            {"autor_id": uid},
+            {"post_id": {"$in": posts_ids}}
+        ]
+    })
+    db.seguidores.delete_many({
+        "$or": [
+            {"seguidor_id": uid},
+            {"seguindo_id": uid}
+        ]
+    })
+    db.notificacoes.delete_many({
+        "$or": [
+            {"destinatario_id": uid},
+            {"remetente_id": uid}
+        ]
+    })
+    
     return jsonify({"mensagem": "Conta excluída com sucesso."})
 
 
@@ -205,15 +222,20 @@ def meu_perfil_delete():
 @usuarios_bp.get("/fotos")
 @autenticar
 def listar_fotos():
+    cursor_fotos = db.postagens.find({
+        "autor_id": request.usuario_id, 
+        "tem_foto": True
+    })
+
     fotos = [
         {
             "id": p["id"],
             "url": f"/static/fotos/{p['id']}.jpg",
             "criado_em": p["criado_em"],
         }
-        for p in db.postagens
-        if p["autor_id"] == request.usuario_id and p.get("tem_foto")
+        for p in cursor_fotos 
     ]
+    
     return jsonify({"fotos": fotos})
 
 
@@ -236,21 +258,14 @@ def seguir(id_pessoa):
     if id_pessoa == request.usuario_id:
         return jsonify({"erro": "Você não pode seguir a si mesmo."}), 400
 
-    alvo = next((u for u in db.usuarios if u["id"] == id_pessoa), None)
+    alvo = db.usuarios.find_one({"id": id_pessoa})
     if not alvo:
         return jsonify({"erro": "Usuário não encontrado."}), 404
 
-    vinculo = next(
-        (
-            s
-            for s in db.seguidores
-            if s["seguidor_id"] == request.usuario_id and s["seguindo_id"] == id_pessoa
-        ),
-        None,
-    )
+    vinculo = db.seguidores.find_one({"seguidor_id": request.usuario_id, "seguindo_id": id_pessoa})
 
     if vinculo:
-        db.seguidores.delete_one(vinculo)
+        db.seguidores.delete_one({"_id": vinculo["_id"]})
         return jsonify(
             {
                 "mensagem": f"Você deixou de seguir @{alvo['username']}.",
@@ -268,5 +283,5 @@ def seguir(id_pessoa):
     )
     criar_notificacao(id_pessoa, request.usuario_id, "seguiu")
     return jsonify(
-        {"mensagem": f"Agora você segue @{alvo['username']}.", "seguindo": True}
+        {"mensagem": f"Você começou a seguir @{alvo['username']}.", "seguindo": True}
     ), 201
