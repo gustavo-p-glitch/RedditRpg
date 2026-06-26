@@ -182,7 +182,7 @@ def feed_amigos():
 @postagens_bp.delete("/<id_post>")
 @autenticar
 def deletar_post(id_post):
-    post = db.postagens.find_one({"id": payload["id_post"]})
+    post = db.postagens.find_one({"id": id_post})
     if not post:
         return jsonify({"erro": "Postagem não encontrada."}), 404
 
@@ -202,7 +202,7 @@ def deletar_post(id_post):
 @postagens_bp.post("/<id_post>/curtir")
 @autenticar
 def curtir(id_post):
-    post = db.postagens.find_one({"id": payload["id_post"]})
+    post = db.postagens.find_one({"id": id_post})
     if not post:
         return jsonify({"erro": "Postagem não encontrada."}), 404
 
@@ -244,7 +244,7 @@ def curtir(id_post):
 @postagens_bp.post("/<id_post>/comentario")
 @autenticar
 def comentar(id_post):
-    post = db.postagens.find_one({"id": payload["id_post"]})
+    post = db.postagens.find_one({"id": id_post})
     if not post:
         return jsonify({"erro": "Postagem não encontrada."}), 404
 
@@ -308,7 +308,7 @@ def deletar_comentario(id_post):
     if not comentario:
         return jsonify({"erro": "Comentário não encontrado."}), 404
 
-    post = db.postagens.find_one({"id": payload["id_post"]})
+    post = db.postagens.find_one({"id": id_post})
     autor_do_post = post["autor_id"] if post else None
 
     if (

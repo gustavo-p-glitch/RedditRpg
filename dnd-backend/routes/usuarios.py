@@ -30,7 +30,7 @@ def criar_notificacao(
     """Cria uma notificação se o destinatário não for o próprio usuário."""
     if destinatario_id == remetente_id:
         return
-    db.notificacoes.append(
+    db.notificacoes.insert_one(
         {
             "id": str(uuid.uuid4()),
             "destinatario_id": destinatario_id,
@@ -102,7 +102,7 @@ def login():
     if not email or not senha:
         return jsonify({"erro": "E-mail e senha são obrigatórios."}), 400
 
-    usuario = next((u for u in db.usuarios if u["email"] == email), None)
+    usuario = db.usuarios.find_one( {"email": email} )
     if not usuario or not verificar_senha(senha, usuario["senha_hash"]):
         return jsonify({"erro": "Credenciais inválidas."}), 401
 
@@ -258,7 +258,7 @@ def seguir(id_pessoa):
             }
         )
 
-    db.seguidores.append(
+    db.seguidores.insert_one(
         {
             "id": str(uuid.uuid4()),
             "seguidor_id": request.usuario_id,

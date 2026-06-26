@@ -107,7 +107,7 @@ def listar_notificacoes():
     # Enriquece com dados do remetente
     enriquecidas = []
     for n in minhas:
-        remetente = next((u for u in db.usuarios if u["id"] == n["remetente_id"]), None)
+        remetente = db.usuarios.find_one( {"id": n["remetente_id"]} )
         enriquecidas.append(
             {
                 **n,
