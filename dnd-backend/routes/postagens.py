@@ -185,13 +185,13 @@ def deletar_post(id_post):
     post = db.postagens.find_one({"id": id_post})
     if not post:
         return jsonify({"erro": "Postagem não encontrada."}), 404
-
+    
     if post["autor_id"] != request.usuario_id:
         return jsonify({"erro": "Sem permissão para excluir esta postagem."}), 403
 
-    db.postagens.remove(post)
-    db.curtidas[:] = [c for c in db.curtidas if c["post_id"] != id_post]
-    db.comentarios[:] = [c for c in db.comentarios if c["post_id"] != id_post]
+    db.postagens.delete_one({"id": id_post})
+    db.curtidas.delete_many({"post_id": id_post})
+    db.comentarios.delete_many({"post_id": id_post})
 
     return jsonify({"mensagem": "Postagem excluída."})
 
@@ -311,5 +311,5 @@ def deletar_comentario(id_post):
     ):
         return jsonify({"erro": "Sem permissão para excluir este comentário."}), 403
 
-    db.comentarios.remove(comentario)
+    db.comentarios.delete_one(comentario)
     return jsonify({"mensagem": "Comentário excluído."})

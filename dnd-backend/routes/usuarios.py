@@ -250,7 +250,7 @@ def seguir(id_pessoa):
     )
 
     if vinculo:
-        db.seguidores.remove(vinculo)
+        db.seguidores.delete_one(vinculo)
         return jsonify(
             {
                 "mensagem": f"Você deixou de seguir @{alvo['username']}.",
