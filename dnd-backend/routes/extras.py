@@ -1,18 +1,17 @@
 from flask import Blueprint, request, jsonify
 import database as db
 from auth import autenticar
+import re
 
 pesquisar_bp = Blueprint("pesquisar", __name__, url_prefix="/pesquisar")
 notificacoes_bp = Blueprint("notificacoes", __name__, url_prefix="/notificacoes")
 
 
 # GET /pesquisar?q=termo&tipo=usuarios|postagens|tudo
-
-
 @pesquisar_bp.get("/")
 @autenticar
 def pesquisar():
-    q = (request.args.get("q") or "").strip().lower()
+    q = (request.args.get("q") or "").strip()
     tipo = request.args.get("tipo", "tudo")
     pagina = int(request.args.get("pagina", 1))
     limite = int(request.args.get("limite", 10))
@@ -22,65 +21,72 @@ def pesquisar():
         return jsonify({"erro": "Parâmetro 'q' é obrigatório."}), 400
 
     resultado = {}
+    regex_query = {"$regex": re.escape(q), "$options": "i"}
 
     if tipo in ("usuarios", "tudo"):
-        encontrados = [
-            u
-            for u in db.usuarios
-            if q in u["nome"].lower()
-            or q in u["username"].lower()
-            or q in (u.get("bio") or "").lower()
-        ]
+        filtro_usuarios = {
+            "$or": [
+                {"nome": regex_query},
+                {"username": regex_query},
+                {"bio": regex_query}
+            ]
+        }
+        
+        total_usuarios = db.usuarios.count_documents(filtro_usuarios)
+        cursor_usuarios = db.usuarios.find(filtro_usuarios).skip(offset).limit(limite)
+        
+        itens_usuarios = []
+        for u in cursor_usuarios:
+            u.pop('_id', None)
+            u.pop('senha_hash', None)
+            
+            u["seguidores"] = db.seguidores.count_documents({"seguindo_id": u["id"]})
+            u["seguindo_eu"] = db.seguidores.find_one({
+                "seguidor_id": request.usuario_id, 
+                "seguindo_id": u["id"]
+            }) is not None
+            
+            itens_usuarios.append(u)
+
         resultado["usuarios"] = {
-            "total": len(encontrados),
-            "itens": [
-                {
-                    **{k: v for k, v in u.items() if k != "senha_hash"},
-                    "seguidores": sum(
-                        1 for s in db.seguidores if s["seguindo_id"] == u["id"]
-                    ),
-                    "seguindo_eu": any(
-                        s
-                        for s in db.seguidores
-                        if s["seguidor_id"] == request.usuario_id
-                        and s["seguindo_id"] == u["id"]
-                    ),
-                }
-                for u in encontrados[offset : offset + limite]
-            ],
+            "total": total_usuarios,
+            "itens": itens_usuarios,
         }
 
     if tipo in ("postagens", "tudo"):
-        encontradas = sorted(
-            [p for p in db.postagens if q in p["conteudo"].lower()],
-            key=lambda p: p["criado_em"],
-            reverse=True,
+        filtro_postagens = {"conteudo": regex_query}
+        
+        total_postagens = db.postagens.count_documents(filtro_postagens)
+        cursor_postagens = (
+            db.postagens.find(filtro_postagens)
+            .sort("criado_em", -1)
+            .skip(offset)
+            .limit(limite)
         )
-        resultado["postagens"] = {
-            "total": len(encontradas),
-            "itens": [
-                {
-                    **p,
-                    "autor": next(
-                        (
-                            {
-                                "id": u["id"],
-                                "nome": u["nome"],
-                                "username": u["username"],
-                                "role": u["role"],
-                            }
-                            for u in db.usuarios
-                            if u["id"] == p["autor_id"]
-                        ),
-                        None,
-                    ),
-                    "likes": sum(1 for c in db.curtidas if c["post_id"] == p["id"]),
-                    "comments": sum(
-                        1 for c in db.comentarios if c["post_id"] == p["id"]
-                    ),
+        
+        itens_postagens = []
+        for p in cursor_postagens:
+            p.pop('_id', None)
+            
+            autor = db.usuarios.find_one({"id": p["autor_id"]})
+            if autor:
+                p["autor"] = {
+                    "id": autor["id"],
+                    "nome": autor["nome"],
+                    "username": autor["username"],
+                    "role": autor.get("role", "")
                 }
-                for p in encontradas[offset : offset + limite]
-            ],
+            else:
+                p["autor"] = None
+                
+            p["likes"] = db.curtidas.count_documents({"post_id": p["id"]})
+            p["comments"] = db.comentarios.count_documents({"post_id": p["id"]})
+            
+            itens_postagens.append(p)
+
+        resultado["postagens"] = {
+            "total": total_postagens,
+            "itens": itens_postagens,
         }
 
     if not resultado:
@@ -93,48 +99,46 @@ def pesquisar():
     )
 
 
-# GET /notificacoes
-
-
 @notificacoes_bp.get("/")
 @autenticar
 def listar_notificacoes():
-    minhas = sorted(
-        [n for n in db.notificacoes if n["destinatario_id"] == request.usuario_id],
-        key=lambda n: n["criado_em"],
-        reverse=True,
+    cursor_notificacoes = (
+        db.notificacoes.find({"destinatario_id": request.usuario_id})
+        .sort("criado_em", -1)
     )
+    
+    nao_lidas = db.notificacoes.count_documents({
+        "destinatario_id": request.usuario_id, 
+        "lida": False
+    })
+
     # Enriquece com dados do remetente
     enriquecidas = []
-    for n in minhas:
-        remetente = db.usuarios.find_one( {"id": n["remetente_id"]} )
-        enriquecidas.append(
-            {
-                **n,
-                "remetente": {
-                    "id": remetente["id"],
-                    "username": remetente["username"],
-                    "nome": remetente["nome"],
-                }
-                if remetente
-                else None,
-            }
-        )
-    return jsonify(
-        {
-            "notificacoes": enriquecidas,
-            "nao_lidas": sum(1 for n in minhas if not n["lida"]),
-        }
-    )
+    for n in cursor_notificacoes:
+        n.pop('_id', None)
+        remetente = db.usuarios.find_one({"id": n["remetente_id"]})
+        
+        n["remetente"] = {
+            "id": remetente["id"],
+            "username": remetente["username"],
+            "nome": remetente["nome"],
+        } if remetente else None
+        
+        enriquecidas.append(n)
+
+    return jsonify({
+        "notificacoes": enriquecidas,
+        "nao_lidas": nao_lidas,
+    })
 
 
 # PATCH /notificacoes/marcar-lidas
-
-
 @notificacoes_bp.patch("/marcar-lidas")
 @autenticar
 def marcar_lidas():
-    for n in db.notificacoes:
-        if n["destinatario_id"] == request.usuario_id:
-            n["lida"] = True
+    db.notificacoes.update_many(
+        {"destinatario_id": request.usuario_id},
+        {"$set": {"lida": True}}
+    )
+    
     return jsonify({"mensagem": "Notificações marcadas como lidas."})
