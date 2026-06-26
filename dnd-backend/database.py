@@ -1,8 +1,12 @@
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from pymongo.collection import Collection
+import os
 
-_client = MongoClient(MONGO_URI)
-_db     = _client[DB_NAME]
+mongo_url = os.environ.get("MONGO_URI")
+db_name = os.environ.get("DB_NAME") 
+
+_client = MongoClient(mongo_url)
+_db = _client[db_name]
 
 usuarios:     Collection = _db["usuarios"]
 postagens:    Collection = _db["postagens"]
