@@ -209,7 +209,7 @@ def curtir(id_post):
     curtida = db.curtidas.find_one( {"post_id": id_post, "usuario_id": request.usuario_id} )
 
     if curtida:
-        db.curtidas.remove(curtida)
+        db.curtidas.delete_one(curtida)
         total = db.curtidas.count_documents({"post_id": id_post})
         return jsonify(
             {"mensagem": "Curtida removida.", "curtido": False, "total_curtidas": total}
