@@ -1,7 +1,7 @@
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from pymongo.collection import Collection
 
-MONGO_URI = "mongodb://localhost:27017"
+MONGO_URI = "mongodb+srv://eduardoerichsen_db_user:xqrHxPvBhrPasX4g@cluster0.sgvvnql.mongodb.net/?appName=Cluster0"
 DB_NAME   = "dnd_forum"
 
 _client = MongoClient(MONGO_URI)

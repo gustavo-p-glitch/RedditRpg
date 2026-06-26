@@ -4,6 +4,7 @@ from routes.usuarios import usuarios_bp
 from routes.postagens import postagens_bp
 from routes.extras import pesquisar_bp, notificacoes_bp
 from database import criar_indices
+import os
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})  # dps temo q restringir a origem
@@ -32,5 +33,8 @@ def erro_interno(e):
     return jsonify({"erro": "Erro interno do servidor.", "detalhe": str(e)}), 500
 
 if __name__ == "__main__":
-    print("DnD API rodando em http://localhost:5000")
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get("PORT", 5000))
+    is_local = "PORT" not in os.environ
+    if is_local:
+        print(f"DnD API rodando localmente em http://localhost:{port}")
+    app.run(host="0.0.0.0", port=port, debug=is_local)
