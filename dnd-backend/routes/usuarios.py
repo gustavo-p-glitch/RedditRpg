@@ -285,3 +285,27 @@ def seguir(id_pessoa):
     return jsonify(
         {"mensagem": f"Você começou a seguir @{alvo['username']}.", "seguindo": True}
     ), 201
+
+
+# GET /usuarios/seguindo
+
+
+@usuarios_bp.get("/seguindo")
+@autenticar
+def listar_seguindo():
+    cursor_seguindo = db.seguidores.find({"seguidor_id": request.usuario_id})
+    seguindo_ids = [s["seguindo_id"] for s in cursor_seguindo]
+    if not seguindo_ids:
+        return jsonify({"seguindo": []})
+    cursor_usuarios = db.usuarios.find({"id": {"$in": seguindo_ids}})
+
+    lista_seguindo = []
+    for u in cursor_usuarios:
+        lista_seguindo.append({
+            "id": u["id"],
+            "username": u["username"],
+            "role": u.get("role"),
+            "numero_foto": u.get("numero_foto"),
+        })
+
+    return jsonify({"seguindo": lista_seguindo})
