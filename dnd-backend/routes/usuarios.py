@@ -311,6 +311,37 @@ def listar_seguindo():
     return jsonify({"seguindo": lista_seguindo})
 
 
+# GET /usuarios/amigos
+
+
+@usuarios_bp.get("/amigos")
+@autenticar
+def listar_amigos():
+    cursor_seguindo = db.seguidores.find({"seguidor_id": request.usuario_id})
+    seguindo_ids = [s["seguindo_id"] for s in cursor_seguindo]
+
+    if not seguindo_ids:
+        return jsonify({"amigos": []})
+
+    cursor_amigos = db.seguidores.find({"seguidor_id": {"$in": seguindo_ids}, "seguindo_id": request.usuario_id})
+    amigos_ids = [s["seguidor_id"] for s in cursor_amigos]
+
+    if not amigos_ids:
+        return jsonify({"amigos": []})
+
+    cursor_usuarios = db.usuarios.find({"id": {"$in": amigos_ids}})
+    lista_amigos = []
+    for u in cursor_usuarios:
+        lista_amigos.append({
+            "id": u["id"],
+            "username": u["username"],
+            "role": u.get("role", "Aventureiro"),
+            "numero_foto": u.get("numero_foto"),
+        })
+
+    return jsonify({"amigos": lista_amigos})
+
+
 # GET /usuarios/<id_usuario>
 
 
