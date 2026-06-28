@@ -309,3 +309,31 @@ def listar_seguindo():
         })
 
     return jsonify({"seguindo": lista_seguindo})
+
+
+# GET /usuarios/<id_usuario>
+
+
+@usuarios_bp.get("/<id_usuario>")
+@autenticar
+def obter_perfil_alvo(id_usuario):
+    u = db.usuarios.find_one({"id": id_usuario})
+    if not u:
+        return jsonify({"erro": "Usuário não encontrado."}), 404
+        
+    stats = stats_usuario(id_usuario)
+    
+    vinculo = db.seguidores.find_one({"seguidor_id": request.usuario_id, "seguindo_id": id_usuario})
+    seguindo_eu = vinculo is not None
+    
+    return jsonify({
+        "id": u["id"],
+        "nome": u["nome"],
+        "username": u["username"],
+        "role": u.get("role", "Aventureiro"),
+        "bio": u.get("bio", ""),
+        "numero_foto": u.get("numero_foto"),
+        **stats,
+        "seguindo_eu": seguindo_eu,
+        "data_entrada": u.get("data_entrada")
+    })
