@@ -4,7 +4,7 @@ A principio pensamos em criar uma rede social no estilo fórum (igual ao Reddit)
 
 membros:
 
-Gustavo Garcia Ponti: backend
+Gustavo Garcia Ponti: backend / banco de dados
 Cauã Pantar: frontend/2
 Kayle Carneiro: frontend/2
-Eduardo Rosinha: banco de dados
+Eduardo Rosinha: banco de dados / backend
