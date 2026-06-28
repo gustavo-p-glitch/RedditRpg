@@ -9,7 +9,7 @@ JWT_SECRET = "segredo_dnd_troque_em_producao"
 JWT_EXPIRACAO_DIAS = 7
 
 
-def gerar_token(usuario_id: str) -> str:
+def gerar_token(usuario_id: str):
     payload = {
         "id": usuario_id,
         "exp": datetime.now(timezone.utc) + timedelta(days=JWT_EXPIRACAO_DIAS),
@@ -17,7 +17,7 @@ def gerar_token(usuario_id: str) -> str:
     return jwt.encode(payload, JWT_SECRET, algorithm="HS256")
 
 
-def verificar_token(token: str) -> dict | None:
+def verificar_token(token: str):
     try:
         return jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
     except jwt.ExpiredSignatureError:
@@ -26,11 +26,11 @@ def verificar_token(token: str) -> dict | None:
         return None
 
 
-def hash_senha(senha: str) -> str:
+def hash_senha(senha: str):
     return bcrypt.hashpw(senha.encode(), bcrypt.gensalt()).decode()
 
 
-def verificar_senha(senha: str, hash_: str) -> bool:
+def verificar_senha(senha: str, hash_: str):
     return bcrypt.checkpw(senha.encode(), hash_.encode())
 
 
