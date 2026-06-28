@@ -11,12 +11,11 @@ usuarios_bp = Blueprint("usuarios", __name__, url_prefix="/usuarios")
 # Helpers
 
 
-def usuario_publico(u: dict) -> dict:
-    """Remove a senha e retorna apenas dados públicos."""
+def usuario_publico(u: dict):
     return {k: v for k, v in u.items() if k != "senha_hash"}
 
 
-def stats_usuario(uid: str) -> dict:
+def stats_usuario(uid: str):
     return {
         "total_postagens": db.postagens.count_documents({"autor_id": uid}),
         "seguidores": db.seguidores.count_documents({"seguindo_id": uid}),
@@ -27,7 +26,6 @@ def stats_usuario(uid: str) -> dict:
 def criar_notificacao(
     destinatario_id: str, remetente_id: str, tipo: str, post_id: str = None
 ):
-    """Cria uma notificação se o destinatário não for o próprio usuário."""
     if destinatario_id == remetente_id:
         return
     db.notificacoes.insert_one(
@@ -35,7 +33,7 @@ def criar_notificacao(
             "id": str(uuid.uuid4()),
             "destinatario_id": destinatario_id,
             "remetente_id": remetente_id,
-            "tipo": tipo,  # "curtiu" | "comentou" | "seguiu"
+            "tipo": tipo,  
             "post_id": post_id,
             "lida": False,
             "criado_em": datetime.now(timezone.utc).isoformat(),
@@ -216,8 +214,6 @@ def meu_perfil_delete():
 
 
 # GET /usuarios/fotos
-# usar S3 ou outro storage
-
 
 @usuarios_bp.get("/fotos")
 @autenticar
