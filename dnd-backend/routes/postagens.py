@@ -12,8 +12,7 @@ TAGS_VALIDAS = {"Mago", "Campanha", "DMs", "Homebrew", "Classes", "Fichas", "Ra√
 # Helpers
 
 
-def enriquecer_post(post: dict, uid_logado: str) -> dict:
-    """Adiciona dados do autor, curtidas e coment√°rios ao post."""
+def enriquecer_post(post: dict, uid_logado: str):
     
     autor = db.usuarios.find_one({"id": post["autor_id"]})
     
@@ -162,7 +161,7 @@ def feed_amigos():
 
     cursor = (
         db.postagens.find(filtro)
-        .sort("criado_em", -1) # -1 for newest first
+        .sort("criado_em", -1) 
         .skip(offset)
         .limit(limite)
     )
