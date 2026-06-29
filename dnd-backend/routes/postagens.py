@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import uuid
 import database as db
 from auth import autenticar
+from pymongo import DESCENDING
 
 postagens_bp = Blueprint("postagens", __name__, url_prefix="/postagens")
 
@@ -311,3 +312,32 @@ def deletar_comentario(id_post):
 
     db.comentarios.delete_one(comentario)
     return jsonify({"mensagem": "Comentário excluído."})
+
+
+# GET /postagens/usuario/<id_usuario>
+
+
+@postagens_bp.get("/usuario/<id_usuario>")
+@autenticar
+def posts_por_usuario(id_usuario):
+    pagina = int(request.args.get("pagina", 1))
+    limite = int(request.args.get("limite", 10))
+    offset = (pagina - 1) * limite
+
+    total = db.postagens.count_documents({"autor_id": id_usuario})
+
+    cursor = db.postagens.find({"autor_id": id_usuario})
+    cursor.sort("criado_em", DESCENDING)
+    cursor.skip(offset)
+    cursor.limit(limite)
+    
+    posts_paginados = [
+        enriquecer_post(p, request.usuario_id) for p in cursor
+    ]
+    
+    return jsonify({
+        "pagina": pagina,
+        "limite": limite,
+        "total": total,
+        "postagens": posts_paginados,
+    })
