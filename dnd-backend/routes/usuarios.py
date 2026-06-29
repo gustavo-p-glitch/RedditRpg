@@ -12,7 +12,14 @@ usuarios_bp = Blueprint("usuarios", __name__, url_prefix="/usuarios")
 
 
 def usuario_publico(u: dict):
-    return {k: v for k, v in u.items() if k != "senha_hash"}
+    return {
+        "id": u["id"],
+        "nome": u["nome"],
+        "username": u["username"],
+        "role": u["Aventureiro"],
+        "bio": u.get("bio", ""),
+        "numero_foto": u.get("numero_foto")
+    }
 
 
 def stats_usuario(uid: str):
