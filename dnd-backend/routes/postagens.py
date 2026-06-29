@@ -4,7 +4,7 @@ import uuid
 import database as db
 from auth import autenticar
 from pymongo import DESCENDING
-from extras import obter_ids_amigos
+from .extras import obter_ids_amigos
 
 postagens_bp = Blueprint("postagens", __name__, url_prefix="/postagens")
 

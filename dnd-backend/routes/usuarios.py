@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import uuid
 import database as db
 from auth import autenticar, gerar_token, hash_senha, verificar_senha
-from extras import obter_ids_amigos
+from .extras import obter_ids_amigos
 
 usuarios_bp = Blueprint("usuarios", __name__, url_prefix="/usuarios")
 
