@@ -142,3 +142,14 @@ def marcar_lidas():
     )
     
     return jsonify({"mensagem": "Notificações marcadas como lidas."})
+
+
+def obter_ids_amigos():
+    cursor_seguindo = db.seguidores.find({"seguidor_id": request.usuario_id})
+    seguindo_ids = [s["seguindo_id"] for s in cursor_seguindo]
+
+    if not seguindo_ids:
+        return jsonify({"amigos": []})
+
+    cursor_amigos = db.seguidores.find({"seguidor_id": {"$in": seguindo_ids}, "seguindo_id": request.usuario_id})
+    return [s["seguidor_id"] for s in cursor_amigos]
