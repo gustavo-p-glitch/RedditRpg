@@ -4,6 +4,7 @@ import uuid
 import database as db
 from auth import autenticar
 from pymongo import DESCENDING
+from extras import obter_ids_amigos
 
 postagens_bp = Blueprint("postagens", __name__, url_prefix="/postagens")
 
@@ -86,11 +87,16 @@ def criar_post():
 
     tags_filtradas = [t for t in tags if t in TAGS_VALIDAS]
 
+    visibilidade = dados.get("visibilidade", "publico")
+    if visibilidade != "publico" and visibilidade != "amigos":
+        visibilidade = "publico"
+
     post = {
         "id": str(uuid.uuid4()),
         "autor_id": request.usuario_id,
         "conteudo": conteudo,
         "tags": tags_filtradas,
+        "visibilidade": visibilidade,
         "criado_em": datetime.now(timezone.utc).isoformat(),
     }
     db.postagens.insert_one(post)
@@ -114,7 +120,15 @@ def feed_geral():
     tag = request.args.get("tag", "")
     offset = (pagina - 1) * limite
 
-    filtro = {}
+    amigos_ids = obter_ids_amigos(request.usuario_id)
+
+    filtro = {
+        "$or": [
+            {"visibilidade": "publico"},
+            {"autor_id": {"$in": amigos_ids}},
+            {"autor_id": request.usuario_id}
+        ]
+    }
     if tag:
         filtro["tags"] = tag
 
@@ -150,11 +164,9 @@ def feed_amigos():
     tag = request.args.get("tag", "")
     offset = (pagina - 1) * limite
 
-    seguindo_cursor = db.seguidores.find({"seguidor_id": request.usuario_id}, {"seguindo_id": 1})
-    seguindo_ids = [s["seguindo_id"] for s in seguindo_cursor]
-    seguindo_ids.append(request.usuario_id)
+    amigos_ids = obter_ids_amigos(request.usuario_id)
 
-    filtro = {"autor_id": {"$in": seguindo_ids}}
+    filtro = {"autor_id": {"$in": amigos_ids}}
     if tag:
         filtro["tags"] = tag
 

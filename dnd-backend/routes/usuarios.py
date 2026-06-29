@@ -1,9 +1,9 @@
 from flask import Blueprint, request, jsonify
 from datetime import datetime, timezone
 import uuid
-
 import database as db
 from auth import autenticar, gerar_token, hash_senha, verificar_senha
+from extras import obter_ids_amigos
 
 usuarios_bp = Blueprint("usuarios", __name__, url_prefix="/usuarios")
 
@@ -320,14 +320,7 @@ def listar_seguindo():
 @usuarios_bp.get("/amigos")
 @autenticar
 def listar_amigos():
-    cursor_seguindo = db.seguidores.find({"seguidor_id": request.usuario_id})
-    seguindo_ids = [s["seguindo_id"] for s in cursor_seguindo]
-
-    if not seguindo_ids:
-        return jsonify({"amigos": []})
-
-    cursor_amigos = db.seguidores.find({"seguidor_id": {"$in": seguindo_ids}, "seguindo_id": request.usuario_id})
-    amigos_ids = [s["seguidor_id"] for s in cursor_amigos]
+    amigos_ids = obter_ids_amigos(request.usuario_id)
 
     if not amigos_ids:
         return jsonify({"amigos": []})
