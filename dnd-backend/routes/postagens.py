@@ -28,7 +28,8 @@ def enriquecer_post(post: dict, uid_logado: str):
         c["autor"] = {
             "id": autor_comentario["id"],
             "nome": autor_comentario["nome"],
-            "username": autor_comentario["username"]
+            "username": autor_comentario["username"],
+            "numero_foto": autor_comentario.get("numero_foto"),
         } if autor_comentario else None
 
         c["meu_comentario"] = (c["autor_id"] == uid_logado)
@@ -45,6 +46,7 @@ def enriquecer_post(post: dict, uid_logado: str):
             "nome": autor["nome"],
             "username": autor["username"],
             "role": autor["role"],
+            "numero_foto": autor.get("numero_foto"),
         } if autor else None,
         "likes": total_curtidas,
         "curtido_por_mim": curtido,
@@ -289,6 +291,7 @@ def comentar(id_post):
                 "autor": {
                     "id": autor["id"],
                     "nome": autor["nome"],
+                    "numero_foto": autor.get("numero_foto"),
                     "username": autor["username"],
                 }
                 if autor
