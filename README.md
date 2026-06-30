@@ -10,3 +10,4 @@ Kayle Carneiro: frontend/2 25102232
 Eduardo Rosinha: banco de dados / backend 25102231
 
 link do projeto: https://reddit-rpg.vercel.app/
+
