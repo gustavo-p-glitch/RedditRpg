@@ -16,9 +16,10 @@ def usuario_publico(u: dict):
         "id": u["id"],
         "nome": u["nome"],
         "username": u["username"],
-        "role": u["Aventureiro"],
+        "role": u.get("role", "Aventureiro"),
         "bio": u.get("bio", ""),
-        "numero_foto": u.get("numero_foto")
+        "numero_foto": u.get("numero_foto"),
+        "data_entrada": u.get("data_entrada")
     }
 
 
@@ -155,6 +156,10 @@ def meu_perfil_put():
 
     if "role" in dados and dados["role"].strip():
         campos_atualizacao["role"] = dados["role"].strip()
+
+    if "numero_foto" in dados:
+        campos_atualizacao["numero_foto"] = dados["numero_foto"]
+
 
     if "username" in dados:
         novo_username = dados["username"].strip().lower()
