@@ -8,8 +8,6 @@ from .extras import obter_ids_amigos
 
 postagens_bp = Blueprint("postagens", __name__, url_prefix="/postagens")
 
-TAGS_VALIDAS = {"Mago", "Campanha", "DMs", "Homebrew", "Classes", "Fichas", "Raças"}
-
 
 # Helpers
 
@@ -32,6 +30,8 @@ def enriquecer_post(post: dict, uid_logado: str):
             "nome": autor_comentario["nome"],
             "username": autor_comentario["username"]
         } if autor_comentario else None
+
+        c["meu_comentario"] = (c["autor_id"] == uid_logado)
         
         coments.append(c)
 
@@ -85,8 +85,6 @@ def criar_post():
     if len(conteudo) > 500:
         return jsonify({"erro": "Conteúdo excede 500 caracteres."}), 400
 
-    tags_filtradas = [t for t in tags if t in TAGS_VALIDAS]
-
     visibilidade = dados.get("visibilidade", "publico")
     if visibilidade != "publico" and visibilidade != "amigos":
         visibilidade = "publico"
@@ -95,7 +93,7 @@ def criar_post():
         "id": str(uuid.uuid4()),
         "autor_id": request.usuario_id,
         "conteudo": conteudo,
-        "tags": tags_filtradas,
+        "tags": tags,
         "visibilidade": visibilidade,
         "criado_em": datetime.now(timezone.utc).isoformat(),
     }
@@ -166,7 +164,10 @@ def feed_amigos():
 
     amigos_ids = obter_ids_amigos(request.usuario_id)
 
-    filtro = {"autor_id": {"$in": amigos_ids}}
+    filtro = {
+        "autor_id": {"$in": amigos_ids},
+        "visibilidade": "amigos"
+    }
     if tag:
         filtro["tags"] = tag
 
@@ -284,6 +285,7 @@ def comentar(id_post):
             "mensagem": "Comentário adicionado.",
             "comentario": {
                 **comentario,
+                "meu_comentario": True,
                 "autor": {
                     "id": autor["id"],
                     "nome": autor["nome"],
@@ -336,9 +338,18 @@ def posts_por_usuario(id_usuario):
     limite = int(request.args.get("limite", 10))
     offset = (pagina - 1) * limite
 
-    total = db.postagens.count_documents({"autor_id": id_usuario})
+    amigos_ids = obter_ids_amigos(request.usuario_id)
+    
+    sao_amigos = (id_usuario in amigos_ids) or (id_usuario == request.usuario_id)
 
-    cursor = db.postagens.find({"autor_id": id_usuario})
+    if sao_amigos:
+        filtro = {"autor_id": id_usuario}
+    else:
+        filtro = {"autor_id": id_usuario, "visibilidade": "publico"}
+
+    total = db.postagens.count_documents(filtro)
+
+    cursor = db.postagens.find(filtro)
     cursor.sort("criado_em", DESCENDING)
     cursor.skip(offset)
     cursor.limit(limite)
