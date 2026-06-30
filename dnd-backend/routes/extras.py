@@ -112,17 +112,25 @@ def listar_notificacoes():
         "lida": False
     })
 
-    # Enriquece com dados do remetente
     enriquecidas = []
     for n in cursor_notificacoes:
         n.pop('_id', None)
         remetente = db.usuarios.find_one({"id": n["remetente_id"]})
         
-        n["remetente"] = {
-            "id": remetente["id"],
-            "username": remetente["username"],
-            "nome": remetente["nome"],
-        } if remetente else None
+        if remetente:
+            seguindo_eu = db.seguidores.find_one({
+                "seguidor_id": request.usuario_id,
+                "seguindo_id": remetente["id"]
+            }) is not None
+            
+            n["remetente"] = {
+                "id": remetente["id"],
+                "username": remetente["username"],
+                "nome": remetente["nome"],
+                "seguindo_eu": seguindo_eu,
+            }
+        else:
+            n["remetente"] = None
         
         enriquecidas.append(n)
 
@@ -144,12 +152,12 @@ def marcar_lidas():
     return jsonify({"mensagem": "Notificações marcadas como lidas."})
 
 
-def obter_ids_amigos():
-    cursor_seguindo = db.seguidores.find({"seguidor_id": request.usuario_id})
+def obter_ids_amigos(usuario_id):
+    cursor_seguindo = db.seguidores.find({"seguidor_id": usuario_id})
     seguindo_ids = [s["seguindo_id"] for s in cursor_seguindo]
 
     if not seguindo_ids:
-        return jsonify({"amigos": []})
+        return []
 
-    cursor_amigos = db.seguidores.find({"seguidor_id": {"$in": seguindo_ids}, "seguindo_id": request.usuario_id})
+    cursor_amigos = db.seguidores.find({"seguidor_id": {"$in": seguindo_ids}, "seguindo_id": usuario_id})
     return [s["seguidor_id"] for s in cursor_amigos]
