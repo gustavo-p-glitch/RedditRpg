@@ -74,7 +74,8 @@ def pesquisar():
                     "id": autor["id"],
                     "nome": autor["nome"],
                     "username": autor["username"],
-                    "role": autor.get("role", "")
+                    "role": autor.get("role", ""),
+                    "numero_foto": autor.get("numero_foto"),
                 }
             else:
                 p["autor"] = None
@@ -127,6 +128,7 @@ def listar_notificacoes():
                 "id": remetente["id"],
                 "username": remetente["username"],
                 "nome": remetente["nome"],
+                "numero_foto": remetente.get("numero_foto"),
                 "seguindo_eu": seguindo_eu,
             }
         else:
