@@ -4,18 +4,26 @@ import {
   salvarToken, removerToken, estaLogado,
   getMeuPerfil, getFeedGeral, getFeedAmigos,
   curtirPost, criarPost, deletarPost, getNotificacoes, marcarNotificacoesLidas,
-  atualizarPerfil, pesquisar, seguirUsuario, getSeguindo, comentar
+  atualizarPerfil, seguirUsuario, getSeguindo, comentar, getAmigos, getPostsUsuario,
+  getPerfilUsuario, deletarComentario, deletarConta
 } from "./api";
 
 import extraIcon from "./assets/extra.svg";
-
-import imagem1 from "./assets/imagem1.png";
-import imagem2 from "./assets/imagem2.png";
-import imagem3 from "./assets/imagem3.png";
-import imagem4 from "./assets/imagem4.png";
-import imagem5 from "./assets/imagem5.png";
-import imagem6 from "./assets/imagem6.png";
-import imagem0 from "./assets/imagem0.png";
+import commentIcon from "./assets/comment.svg";
+import likeOutlineIcon from "./assets/btn-action.svg";
+import likeFilledIcon from "./assets/btn-action-curtido.svg";
+import btnTrocarFoto from "./assets/btn-trocar-foto.svg";
+import imagem0 from "./assets/Imagem0.png";
+import imagem1 from "./assets/Imagem1.png";
+import imagem2 from "./assets/Imagem2.png";
+import imagem3 from "./assets/Imagem3.png";
+import imagem4 from "./assets/Imagem4.png";
+import imagem5 from "./assets/Imagem5.png";
+import imagem6 from "./assets/Imagem6.png";
+import ornamentoBorda from "./assets/ornamentos_borda.png";
+import molduraDividida from "./assets/moldura_dividida.png";
+import cavaleiro from "./assets/cavaleiro.png";
+import divisoria from "./assets/divisoria-posts.png"
 
 const TODAS_TAGS = ["Regras", "Campanha", "DMs", "Homebrew", "Classes", "Raças", "Monstros", "Itens", "Combate"];
 
@@ -24,6 +32,8 @@ function srcFoto(numeroFoto) {
   if (!numeroFoto) return imagem0;
   return FOTOS[Number(numeroFoto) - 1] ?? imagem0;
 }
+
+// Componentes reutilizáveis 
 
 function Avatar({ username = "?", numeroFoto = null, className = "avatar-img" }) {
   return (
@@ -58,6 +68,7 @@ function SeletorFoto({ fotoAtual, onEscolher }) {
 function FormPost({ onPostar, usuario }) {
   const [conteudo,         setConteudo]         = useState("");
   const [tagsSelecionadas, setTagsSelecionadas] = useState([]);
+  const [visibilidade,     setVisibilidade]     = useState("publico");
   const [carregando,       setCarregando]       = useState(false);
   const [erro,             setErro]             = useState("");
 
@@ -71,10 +82,11 @@ function FormPost({ onPostar, usuario }) {
     if (!conteudo.trim()) { setErro("O conteúdo não pode ser vazio."); return; }
     setCarregando(true);
     setErro("");
-    const { ok, dados } = await criarPost(conteudo, tagsSelecionadas);
+    const { ok, dados } = await criarPost(conteudo, tagsSelecionadas, visibilidade);
     if (ok) {
       setConteudo("");
       setTagsSelecionadas([]);
+      setVisibilidade("publico");
       onPostar();
     } else {
       setErro(dados.erro ?? "Erro ao publicar.");
@@ -111,15 +123,29 @@ function FormPost({ onPostar, usuario }) {
           ))}
         </div>
         {erro && <p className="form-erro">{erro}</p>}
-        <button className="btn-submit" onClick={handlePublicar} disabled={carregando}>
-          {carregando ? "Publicando..." : "PUBLICAR"}
-        </button>
+        
+        <div style={{ display: 'flex', gap: '0.2cm' }}>
+          <button
+            type="button"
+            className={`btn-submit ${visibilidade === "amigos" ? 'following' : ''}`}
+            onClick={() => setVisibilidade(prev => prev === "publico" ? "amigos" : "publico")}
+          >
+            {visibilidade === "publico" ? "PÚBLICO" : "AMIGOS"}
+          </button>
+
+          <button className="btn-submit" onClick={handlePublicar} disabled={carregando}>
+            {carregando ? "PUBLICAR" : "PUBLICAR"}
+          </button>
+        </div>
+
       </div>
     </aside>
   );
 }
 
-function ComentarioItem({ comentario, onVerPerfil }) {
+function ComentarioItem({ comentario, onVerPerfil, onDeletar }) {
+  const [menuAberto, setMenuAberto] = useState(false); 
+
   const username   = comentario.autor?.username   ?? "?";
   const role       = comentario.autor?.role       ?? "Aventureiro";
   const numeroFoto = comentario.autor?.numero_foto ?? null;
@@ -127,25 +153,49 @@ function ComentarioItem({ comentario, onVerPerfil }) {
 
   return (
     <div className="comentario-item">
-      <div className="post-layout">
+      <div className="comentario-layout">
         <div className="post-col-esq">
           <button 
             className="btn-perfil" 
             onClick={() => onVerPerfil && autorId && onVerPerfil(autorId, username)}
           >
-            <Avatar username={username} numeroFoto={numeroFoto} />
+            <Avatar username={username} numeroFoto={numeroFoto} className="avatar-comentario" />
           </button>
         </div>
         
-        <div className="post-col-dir">
+        <div className="comentario-col-dir">
           <div className="post-user-info">
             <button 
               className="btn-perfil" 
               onClick={() => onVerPerfil && autorId && onVerPerfil(autorId, username)}
             >
-              <span className="post-username">{username}</span>
+              <span className="comentario-username">{username}</span>
             </button>
-            <span className="post-badge-role">{role}</span>
+            <span className="post-badge-role comentario-role">{role}</span>
+
+            {comentario.meu_comentario && (
+              <div className="post-menu">
+                <button 
+                  className="btn-post-menu" 
+                  onClick={() => setMenuAberto(v => !v)}
+                >
+                  <img src={extraIcon} alt="opções" className="post-menu-icon"/>
+                </button>
+                
+                {menuAberto && (
+                  <button 
+                    className="post-menu-opcao post-menu-excluir" 
+                    onClick={() => {
+                      setMenuAberto(false);
+                      onDeletar(comentario.id);
+                    }}
+                  >
+                    Excluir
+                  </button>
+                )}
+              </div>
+            )}
+
           </div>
           
           <div className="comentario-conteudo">
@@ -188,6 +238,7 @@ function PostCard({ post, podeExcluir = false, onExcluir, onVerPerfil }) {
   async function handleComentar() {
     if (!novoComentario.trim() || enviandoComentario) return;
     setEnviandoComentario(true);
+
     const { dados, ok } = await comentar(post.id, novoComentario);
     if (ok) {
       setComentarios(prev => [...prev, dados.comentario]);
@@ -195,6 +246,14 @@ function PostCard({ post, podeExcluir = false, onExcluir, onVerPerfil }) {
     }
     setEnviandoComentario(false);
   }
+
+  async function handleDeletarComentario(idComentario) {    
+    const { ok } = await deletarComentario(post.id, idComentario);
+    if (ok) {
+      setComentarios(prev => prev.filter(c => c.id !== idComentario));
+    }
+  }
+  
 
   const username   = post.autor?.username   ?? post.username ?? "?";
   const role       = post.autor?.role       ?? post.role     ?? "";
@@ -221,6 +280,9 @@ function PostCard({ post, podeExcluir = false, onExcluir, onVerPerfil }) {
                 <span className="post-username">{username}</span>
               </button>
               <span className="post-badge-role">{role}</span>
+              {post.visibilidade === "amigos" && (
+                <span className="post-badge-role" title="Apenas amigos podem ver">Amigo</span>
+              )}
             </div>
             {podeExcluir && (
               <div className="post-menu">
@@ -251,13 +313,23 @@ function PostCard({ post, podeExcluir = false, onExcluir, onVerPerfil }) {
               onClick={handleCurtir}
               disabled={carregando}
             >
-              ❤️ {likes}
+              <img 
+                src={curtido ? likeFilledIcon : likeOutlineIcon} 
+                alt={curtido ? "Descurtir" : "Curtir"} 
+                className="action-icon" 
+              />
+              <span>{likes}</span>
             </button>
             <button 
               className={`btn-action ${comentariosAbertos ? "ativo" : ""}`}
               onClick={() => setComentariosAbertos(v => !v)}
             >
-              💬 {comentarios.length}
+              <img 
+                src={commentIcon} 
+                alt="Comentários" 
+                className="action-icon" 
+              />
+              <span>{comentarios.length}</span>
             </button>
           </div>
 
@@ -268,15 +340,15 @@ function PostCard({ post, podeExcluir = false, onExcluir, onVerPerfil }) {
                   <ComentarioItem 
                     key={c.id} 
                     comentario={c} 
-                    onVerPerfil={onVerPerfil} 
+                    onVerPerfil={onVerPerfil}
+                    onDeletar={handleDeletarComentario}
                   />
                 ))}
               </div>
               
               <div className="form-novo-comentario">
-                <input 
-                  type="text" 
-                  className="input-comentario"
+                <textarea 
+                  className="textarea-comentario"
                   placeholder="Deixe uma resposta..." 
                   value={novoComentario}
                   onChange={e => setNovoComentario(e.target.value)}
@@ -287,7 +359,7 @@ function PostCard({ post, podeExcluir = false, onExcluir, onVerPerfil }) {
                   onClick={handleComentar} 
                   disabled={enviandoComentario || !novoComentario.trim()}
                 >
-                  {enviandoComentario ? "..." : "Responder"}
+                  {enviandoComentario ? "RESPONDER" : "RESPONDER"}
                 </button>
               </div>
             </div>
@@ -298,6 +370,8 @@ function PostCard({ post, podeExcluir = false, onExcluir, onVerPerfil }) {
     </article>
   );
 }
+
+// Barra de navegação
 
 function Navbar({ paginaAtual, setPaginaAtual, onLogout, notifNaoLidas = 0 }) {
   const links = [
@@ -324,33 +398,39 @@ function Navbar({ paginaAtual, setPaginaAtual, onLogout, notifNaoLidas = 0 }) {
             Sair
           </a>
         </div>
-        <div className="nav-search">
-          <input type="text" placeholder="Pesquisar..." />
-        </div>
       </nav>
       {paginaAtual === "home" && (
         <div className="brand-banner">
-          <h1>Nome Foda</h1>
+          <h1>Dados & Discussões</h1>
         </div>
       )}
     </header>
   );
 }
 
-function PaginaHome({ onVerPerfil }) {
+// Páginas
+
+function PaginaHome({ onVerPerfil, filtroTag, setFiltroTag, setPaginaAtual }) {
   const [filtroFeed, setFiltroFeed] = useState("para-voce");
-  const [filtroTag,  setFiltroTag]  = useState("");
   const [posts,      setPosts]      = useState([]);
   const [carregando, setCarregando] = useState(true);
 
   const buscarPosts = useCallback(async () => {
     setCarregando(true);
+    
     const { dados, ok } = filtroFeed === "amigos"
       ? await getFeedAmigos(1, filtroTag)
       : await getFeedGeral(1, filtroTag);
-    if (ok) setPosts(dados.postagens ?? []);
+
+    if (!ok) {
+      removerToken();
+      setPaginaAtual("login");
+      return;                  
+    }
+
+    setPosts(dados.postagens ?? []);
     setCarregando(false);
-  }, [filtroFeed, filtroTag]);
+  }, [filtroFeed, filtroTag, setPaginaAtual]);
 
   useEffect(() => { buscarPosts(); }, [buscarPosts]);
 
@@ -359,19 +439,19 @@ function PaginaHome({ onVerPerfil }) {
       <aside className="sidebar-left">
         <div className="parchment-box">
           <h2>Sobre nós</h2>
-          <p>Uma taverna virtual para aventureiros de D&amp;D! Compartilhe campanhas, personagens e histórias épicas.</p>
+          <p>Somos um grupo de estudantes de Sistemas de Informação que decidiu transformar nosso gosto por Dungeons & Dragons em um site para nosso trabalho final de Programação Web! A ideia foi criar um ambiente para todos aqueles fãns de RPG que queriam um lugar para falar sobre suas campanhas, personagens ou tirar dúvidas com a comunidade. É um DM e já quis conversar sobre sua nova mecânica Homebrew com alguém, mas não pode dar spoilers pros jogadores? Ou quer saber quais os melhores itens mágicos para dar ao seu bárbaro? Aqui é o lugar! O site ainda vai estar se desenvolvendo e ganhando novas funções com o tempo, então venham com a gente nessa jornada para fazer o Dados & Discussões (hehe) um lugar seguro para todos os jogadores! Esperamos que gostem e que os dados estejam ao seu favor ;)</p>
         </div>
       </aside>
 
       <main className="feed-area">
         <div className="feed-header">
           <select className="custom-select" value={filtroFeed} onChange={e => setFiltroFeed(e.target.value)}>
-            <option value="para-voce">Para Você</option>
-            <option value="amigos">Amigos</option>
+            <option value="para-voce">PARA VOCÊ</option>
+            <option value="amigos">AMIGOS</option>
           </select>
 
           <select className="custom-select select-small" value={filtroTag} onChange={e => setFiltroTag(e.target.value)}>
-            <option value="">+ Tag</option>
+            <option value="">TAG</option>
             {TODAS_TAGS.map(tag => (
               <option key={tag} value={tag}>{tag}</option>
             ))}
@@ -390,7 +470,17 @@ function PaginaHome({ onVerPerfil }) {
           <h2>Tags populares</h2>
           <ul className="tags-list">
             {TODAS_TAGS.map(tag => (
-              <li key={tag}><a href="#">{tag}</a></li>
+              <li key={tag}>
+                <a 
+                  href="#" 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setFiltroTag(tag);
+                  }}
+                >
+                  {tag}
+                </a>
+              </li>
             ))}
           </ul>
         </div>
@@ -398,6 +488,8 @@ function PaginaHome({ onVerPerfil }) {
     </div>
   );
 }
+
+// Tela de login
 
 function PaginaLogin({ setPaginaAtual, onLoginSucesso }) {
   const [email, setEmail]           = useState("");
@@ -422,39 +514,47 @@ function PaginaLogin({ setPaginaAtual, onLoginSucesso }) {
   function handleKeyDown(e) { if (e.key === "Enter") handleEntrar(); }
 
   return (
-    <div className="auth-page">
-      <aside className="auth-banner">
-        <div className="banner-content">
-          <h1>Nome Foda</h1>
-          <p>Texto sobre nós e o website</p>
-        </div>
-      </aside>
-      <main className="auth-form-area">
-        <div className="form-card">
-          <h2>Bem-vindo de volta!</h2>
-          <div className="auth-form">
-            <div className="input-group">
-              <label>Email</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} />
-            </div>
-            <div className="input-group">
-              <label>Senha</label>
-              <input type="password" value={senha} onChange={e => setSenha(e.target.value)} onKeyDown={handleKeyDown} />
-            </div>
-            {erro && <p className="form-erro">{erro}</p>}
-            <button className="btn-submit" onClick={handleEntrar} disabled={carregando}>
-              {carregando ? "Entrando..." : "ENTRAR"}
-            </button>
+    <div className="auth-page-dividida">
+      <img src={molduraDividida} alt="Moldura Dividida" className="moldura-dividida-bg" />
+      
+      <div className="auth-conteudo-dividido">
+        <aside className="auth-metade esquerda">
+          <div className="banner-content">
+            <h1>Dados & Discussões</h1>
+            <p>Somos um grupo de estudantes de Sistemas de Informação que decidiu transformar nosso gosto por Dungeons & Dragons em um site para nosso trabalho final de Programação Web! A ideia foi criar um ambiente para todos aqueles fãns de RPG que queriam um lugar para falar sobre suas campanhas, personagens ou tirar dúvidas com a comunidade. É um DM e já quis conversar sobre sua nova mecânica Homebrew com alguém, mas não pode dar spoilers pros jogadores? Ou quer saber quais os melhores itens mágicos para dar ao seu bárbaro? Aqui é o lugar! O site ainda vai estar se desenvolvendo e ganhando novas funções com o tempo, então venham com a gente nessa jornada para fazer o Dados & Discussões (hehe) um lugar seguro para todos os jogadores! Esperamos que gostem e que os dados estejam ao seu favor ;)</p>
           </div>
-          <div className="form-footer">
-            Ainda não tem uma conta?{" "}
-            <a href="#" onClick={e => { e.preventDefault(); setPaginaAtual("signup"); }}>Clique aqui</a>
+          <img src={cavaleiro} alt="Cavaleiro" className="cavaleiro-img" />
+        </aside>
+
+        <main className="auth-metade direita">
+          <div className="form-card form-sem-borda">
+            <h2>Bem-vindo de volta!</h2>
+            <div className="auth-form">
+              <div className="input-group">
+                <label>Email</label>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} />
+              </div>
+              <div className="input-group">
+                <label>Senha</label>
+                <input type="password" value={senha} onChange={e => setSenha(e.target.value)} onKeyDown={handleKeyDown} />
+              </div>
+              {erro && <p className="form-erro">{erro}</p>}
+              <button className="btn-submit" onClick={handleEntrar} disabled={carregando}>
+                {carregando ? "Entrando..." : "ENTRAR"}
+              </button>
+            </div>
+            <div className="form-footer">
+              Ainda não tem uma conta?{" "}
+              <a href="#" onClick={e => { e.preventDefault(); setPaginaAtual("signup"); }}>Clique aqui</a>
+            </div>
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
+
+// Tela de cadastro
 
 function PaginaCadastro({ setPaginaAtual, onLoginSucesso }) {
   const [nome,           setNome]           = useState("");
@@ -482,59 +582,74 @@ function PaginaCadastro({ setPaginaAtual, onLoginSucesso }) {
   }
 
   return (
-    <div className="auth-page">
-      <aside className="auth-banner">
-        <div className="banner-content">
-          <h1>Nome Foda</h1>
-          <p>Texto sobre nós e o website</p>
-        </div>
-      </aside>
-      <main className="auth-form-area">
-        <div className="form-card">
-          <h2>Role iniciativa!</h2>
-          <div className="auth-form">
-            <div className="input-group">
-              <label>Nome</label>
-              <input type="text" value={nome} onChange={e => setNome(e.target.value)} />
-            </div>
-            <div className="input-group">
-              <label>Username</label>
-              <input type="text" value={username} onChange={e => setUsername(e.target.value)} />
-            </div>
-            <div className="input-group">
-              <label>Email</label>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} />
-            </div>
-            <div className="input-group">
-              <label>Senha</label>
-              <input type="password" value={senha} onChange={e => setSenha(e.target.value)} />
-            </div>
-            <div className="input-group">
-              <label>Confirmar Senha</label>
-              <input type="password" value={confirmarSenha} onChange={e => setConfirmarSenha(e.target.value)} />
-            </div>
-            {erro && <p className="form-erro">{erro}</p>}
-            <button className="btn-submit" onClick={handleCriarConta} disabled={carregando}>
-              {carregando ? "Criando conta..." : "CRIAR CONTA"}
-            </button>
+    <div className="auth-page-dividida">
+      <img src={molduraDividida} alt="Moldura Dividida" className="moldura-dividida-bg" />
+      
+      <div className="auth-conteudo-dividido">
+        <aside className="auth-metade esquerda">
+          <div className="banner-content">
+            <h1>Dados & Discussões</h1>
+            <p>Texto sobre nós e o website</p>
           </div>
-          <div className="form-footer">
-            Já tem uma conta?{" "}
-            <a href="#" onClick={e => { e.preventDefault(); setPaginaAtual("login"); }}>Clique aqui</a>
+          <img src={cavaleiro} alt="Cavaleiro" className="cavaleiro-img" />
+        </aside>
+
+        <main className="auth-metade direita">
+          <div className="form-card form-sem-borda">
+            <h2>Role iniciativa!</h2>
+            <div className="auth-form">
+              <div className="input-group">
+                <label>Nome</label>
+                <input type="text" value={nome} onChange={e => setNome(e.target.value)} />
+              </div>
+              <div className="input-group">
+                <label>Username</label>
+                <input type="text" value={username} onChange={e => setUsername(e.target.value)} />
+              </div>
+              <div className="input-group">
+                <label>Email</label>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} />
+              </div>
+              <div className="input-group">
+                <label>Senha</label>
+                <input type="password" value={senha} onChange={e => setSenha(e.target.value)} />
+              </div>
+              <div className="input-group">
+                <label>Confirmar Senha</label>
+                <input type="password" value={confirmarSenha} onChange={e => setConfirmarSenha(e.target.value)} />
+              </div>
+              {erro && <p className="form-erro">{erro}</p>}
+              <button className="btn-submit" onClick={handleCriarConta} disabled={carregando}>
+                {carregando ? "Criando conta..." : "CRIAR CONTA"}
+              </button>
+            </div>
+            <div className="form-footer">
+              Já tem uma conta?{" "}
+              <a href="#" onClick={e => { e.preventDefault(); setPaginaAtual("login"); }}>Clique aqui</a>
+            </div>
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
 
-function ItemNotificacao({ n, onVerPerfil, textoAcao }) {
+function ItemNotificacao({ n, onVerPerfil, textoAcao, onToggleSeguir }) {
   const [seguindo, setSeguindo] = useState(n.remetente?.seguindo_eu ?? false);
+
+  useEffect(() => {
+    setSeguindo(n.remetente?.seguindo_eu ?? false);
+  }, [n.remetente?.seguindo_eu]);
 
   async function handleSeguir() {
     if (!n.remetente?.id) return;
     const { dados, ok } = await seguirUsuario(n.remetente.id);
-    if (ok) setSeguindo(dados.seguindo);
+    if (ok) {
+      setSeguindo(dados.seguindo);
+      if (onToggleSeguir) {
+        onToggleSeguir(n.remetente.id, dados.seguindo, n.remetente);
+      }
+    }
   }
 
   return (
@@ -563,9 +678,12 @@ function ItemNotificacao({ n, onVerPerfil, textoAcao }) {
   );
 }
 
+// Tela de notificações
+
 function PaginaNotificacoes({ onVerPerfil }) {
   const [notificacoes, setNotificacoes] = useState([]);
   const [seguindo, setSeguindo] = useState([]);
+  const [amigos, setAmigos]     = useState([]);
   const [carregando,   setCarregando]   = useState(true);
 
   useEffect(() => {
@@ -581,11 +699,41 @@ function PaginaNotificacoes({ onVerPerfil }) {
         setSeguindo(dadosSeguindo.seguindo ?? []);
       }
 
+      const { dados: dadosAmigos, ok: okAmigos } = await getAmigos();
+      if (okAmigos) {
+        setAmigos(dadosAmigos.amigos ?? []);
+      }
+
       setCarregando(false);
     }
     buscar();
   }, []);
 
+  function handleToggleSeguir(idUsuario, isSeguindo, dadosRemetente) {
+    if (isSeguindo) {
+      setSeguindo(prev => {
+        if (prev.some(u => u.id === idUsuario)) return prev;
+        return [...prev, {
+          id: idUsuario,
+          username: dadosRemetente.username,
+          role: "Aventureiro"
+        }];
+      });
+
+      setAmigos(prev => {
+        if (prev.some(u => u.id === idUsuario)) return prev;
+        return [...prev, {
+          id: idUsuario,
+          username: dadosRemetente.username,
+          role: "Aventureiro" 
+        }];
+      });
+
+    } else {
+      setSeguindo(prev => prev.filter(user => user.id !== idUsuario));
+      setAmigos(prev => prev.filter(user => user.id !== idUsuario));
+    }
+  }
   function textoAcao(tipo) {
     if (tipo === "curtiu")   return "curtiu seu post";
     if (tipo === "comentou") return "comentou no seu post";
@@ -604,10 +752,10 @@ function PaginaNotificacoes({ onVerPerfil }) {
             n={n}
             onVerPerfil={onVerPerfil}
             textoAcao={textoAcao}
+            onToggleSeguir={handleToggleSeguir}
           />
         ))}
       </main>
-
       <aside className="box-seguindo">
         <div className="parchment-box">
           <h2>Seguindo</h2>
@@ -635,17 +783,50 @@ function PaginaNotificacoes({ onVerPerfil }) {
             )}
           </ul>
         </div>
+
+        <div className="parchment-box">
+          <h2>Amigos</h2>
+          <ul className="lista-seguindo-notif">
+            {amigos.length > 0 ? (
+              amigos.map(user => (
+                <li key={user.id}>
+                  <div className="post-user-info">
+                    <a 
+                      href="#" 
+                      className="post-username"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        if (onVerPerfil) onVerPerfil(user.id, user.username);
+                      }}
+                    >
+                      {user.username}
+                    </a>
+                    <span className="post-badge-role">{user.role}</span>
+                  </div>
+                </li>
+              ))
+            ) : (
+              <li><p>Nenhum amigo ainda...</p></li>
+            )}
+          </ul>
+        </div>
+
       </aside>
     </div>
   );
 }
 
-function PaginaPerfil() {
+// Perfil do usuário
+
+function PaginaPerfil({ setPaginaAtual, setFiltroTag }) {
   const [usuario,      setUsuario]      = useState(null);
   const [posts,        setPosts]        = useState([]);
   const [carregando,   setCarregando]   = useState(true);
-  const [editandoFoto, setEditandoFoto] = useState(false);
+  const [editando,     setEditando]     = useState(false);
   const [salvando,     setSalvando]     = useState(false);
+  const [formPerfil,   setFormPerfil]   = useState({ username: "", role: "", bio: "", numero_foto: null });
+  const [editandoFoto, setEditandoFoto] = useState(false); 
+  const [confirmarExclusao, setConfirmarExclusao] = useState(false);
 
   useEffect(() => {
     async function buscar() {
@@ -672,12 +853,35 @@ function PaginaPerfil() {
     setPosts(prev => prev.filter(p => p.id !== idPost));
   }
 
-  async function handleEscolherFoto(numero) {
-    setSalvando(true);
-    const { dados, ok } = await atualizarPerfil({ numero_foto: numero });
+  function iniciarEdicao() {
+    setFormPerfil({
+      username: usuario.username,
+      role: usuario.role || "",
+      bio: usuario.bio || "",
+      numero_foto: usuario.numero_foto
+    });
+    setEditando(true);
+  }
+
+  async function handleExcluirConta() {
+    const { ok } = await deletarConta();
     if (ok) {
-      setUsuario(u => ({ ...u, numero_foto: numero }));
-      setEditandoFoto(false);
+      removerToken();
+      setPaginaAtual("login");
+    } else {
+      alert("Erro ao excluir conta. Tente novamente.");
+    }
+  }
+
+  async function handleSalvarEdicao() {
+    setSalvando(true);
+    const { dados, ok } = await atualizarPerfil(formPerfil);
+    if (ok) {
+      setUsuario(prev => ({ ...prev, ...formPerfil }));
+      setEditando(false);
+      setEditandoFoto(false); 
+    } else {
+      alert("Falha ao salvar as alterações.");
     }
     setSalvando(false);
   }
@@ -702,35 +906,104 @@ function PaginaPerfil() {
     <div className="main-container perfil-main-container">
       <aside className="sidebar-left">
         <div className="perfil-cabecalho">
+          
           <div className="avatar-wrapper">
             <Avatar
-              username={usuario.username}
-              numeroFoto={usuario.numero_foto ?? null}
+              username={editando ? formPerfil.username : usuario.username}
+              numeroFoto={editando ? formPerfil.numero_foto : usuario.numero_foto}
               className="avatar-perfil"
             />
-            <button className="btn-trocar-foto"
-              onClick={() => setEditandoFoto(v => !v)}
-              title="Trocar foto"
-            >📷</button>
+            {editando && (
+              <button className="btn-trocar-foto"
+                onClick={() => setEditandoFoto(v => !v)}
+                title="Trocar foto"
+              >
+                <img src={btnTrocarFoto} alt="Trocar foto" />
+              </button>
+            )}
           </div>
 
-          {editandoFoto && (
+          {editando && editandoFoto && (
             <div>
               <p className="seletor-foto-title">Escolha sua foto:</p>
-              <SeletorFoto fotoAtual={usuario.numero_foto} onEscolher={handleEscolherFoto} />
-              {salvando && <p className="salvando-texto">Salvando...</p>}
+              <SeletorFoto 
+                fotoAtual={formPerfil.numero_foto} 
+                onEscolher={(num) => setFormPerfil({ ...formPerfil, numero_foto: num })} 
+              />
             </div>
           )}
 
           <div className="perfil-info">
-            <div className="post-user-info">
-              <span className="post-username-perfil">{usuario.username}</span>
-              <span className="post-badge-role">{usuario.role}</span>
-            </div>
-            <p className="description">{usuario.bio || "Aqui é onde a biografia da pessoa vai ficar..."}</p>
-            <p className="description">Entrou em {usuario.data_entrada}</p>
+            {editando ? (
+              <div>
+                <div>
+                  <label>Username</label>
+                  <input
+                    className ="editar-perfil"
+                    type="text"
+                    value={formPerfil.username}
+                    maxLength={20}
+                    onChange={e => setFormPerfil({ ...formPerfil, username: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label>Cargo</label>
+                  <select
+                    className="editar-perfil"
+                    value={formPerfil.role || "Aventureiro"}
+                    onChange={e => setFormPerfil({ ...formPerfil, role: e.target.value })}
+                  >
+                    <option value="Aventureiro">Aventureiro</option>
+                    <option value="Jogador">Jogador</option>
+                    <option value="DM">DM</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Biografia (Máx 160)</label>
+                  <textarea
+                    className ="editar-perfil"
+                    value={formPerfil.bio}
+                    onChange={e => setFormPerfil({ ...formPerfil, bio: e.target.value })}
+                    maxLength={160}
+                  />
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="post-user-info">
+                  <span className="post-username-perfil">{usuario.username}</span>
+                  <span className="post-badge-role">{usuario.role}</span>
+                </div>
+                <p className="description">{usuario.bio || "Escreva algo sobre você"}</p>
+                <p className="description">Entrou em {usuario.data_entrada}</p>
+              </>
+            )}
           </div>
-          <button className="btn-submit">EDITAR PERFIL</button>
+          
+          <button 
+            className="btn-submit" 
+            onClick={editando ? handleSalvarEdicao : iniciarEdicao}
+            disabled={salvando}
+          >
+            {salvando ? "SALVANDO..." : editando ? "CONFIRMAR" : "EDITAR PERFIL"}
+          </button>
+          {editando && !confirmarExclusao && (
+            <button type="button" className="btn-excluir" onClick={() => setConfirmarExclusao(true)}>
+              EXCLUIR CONTA
+            </button>
+          )}  
+
+          {confirmarExclusao && (
+            <div className="confirmacao-exclusao">
+              <p>Certeza que você quer excluir sua conta? essa ação não pode ser desfeita</p>
+              <button type="button" className="btn-submit" onClick={handleExcluirConta}>
+                CONFIRMAR
+              </button>
+              <button type="button" className="btn-submit" onClick={() => setConfirmarExclusao(false)}>
+                CANCELAR
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -764,6 +1037,7 @@ function PaginaPerfil() {
           </section>
         </main>
       </div>
+
       <aside className="coluna-direita-perfil">
         <FormPost onPostar={buscarPostsDoPerfil} usuario={usuario} />
         <div className="perfil-sidebar-tags">
@@ -771,7 +1045,18 @@ function PaginaPerfil() {
             <h2>Tags populares</h2>
             <ul className="tags-list">
               {TODAS_TAGS.map(tag => (
-                <li key={tag}><a href="#">{tag}</a></li>
+                <li key={tag}>
+                  <a 
+                    href="#" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setFiltroTag(tag);
+                      setPaginaAtual("home");
+                    }}
+                  >
+                    {tag}
+                  </a>
+                </li>
               ))}
             </ul>
           </div>
@@ -781,7 +1066,9 @@ function PaginaPerfil() {
   );
 }
 
-function PaginaPerfilOutro({ idUsuario, usernameUsuario, onVerPerfil }) {
+// Perfil de outro usuário
+
+function PaginaPerfilOutro({ idUsuario, usernameUsuario, onVerPerfil, setPaginaAtual, setFiltroTag }) {
   const [usuario,    setUsuario]    = useState(null);
   const [posts,      setPosts]      = useState([]);
   const [seguindo,   setSeguindo]   = useState(false);
@@ -789,29 +1076,34 @@ function PaginaPerfilOutro({ idUsuario, usernameUsuario, onVerPerfil }) {
 
   useEffect(() => {
     async function buscar() {
-      // busca dados do usuário pelo username via pesquisar
-      const { dados, ok } = await pesquisar(usernameUsuario, "usuarios");
-      if (ok) {
-        const encontrado = (dados.resultado?.usuarios?.itens ?? [])
-          .find(u => u.id === idUsuario);
-        if (encontrado) {
-          setUsuario(encontrado);
-          setSeguindo(encontrado.seguindo_eu ?? false);
-        }
+      setCarregando(true);
+      
+      const resPerfil = await getPerfilUsuario(idUsuario);
+      if (resPerfil.ok) {
+        setUsuario(resPerfil.dados);
+        setSeguindo(resPerfil.dados.seguindo_eu ?? false);
       }
-      // busca os posts do feed e filtra pelo autor
-      const { dados: feed, ok: okFeed } = await getFeedGeral(1, "", 50);
-      if (okFeed) {
-        setPosts((feed.postagens ?? []).filter(p => p.autor_id === idUsuario));
+      
+      const resPosts = await getPostsUsuario(idUsuario);
+      if (resPosts.ok) {
+        setPosts(resPosts.dados.postagens ?? []);
       }
+      
       setCarregando(false);
     }
-    buscar();
-  }, [idUsuario, usernameUsuario]);
+    
+    if (idUsuario) buscar();
+  }, [idUsuario]);
 
   async function handleSeguir() {
     const { dados, ok } = await seguirUsuario(idUsuario);
-    if (ok) setSeguindo(dados.seguindo);
+    if (ok) {
+      setSeguindo(dados.seguindo);
+      setUsuario(prev => ({
+        ...prev, 
+        seguidores: dados.seguindo ? (prev.seguidores + 1) : (prev.seguidores - 1)
+      }));
+    }
   }
 
   if (carregando) return (
@@ -832,6 +1124,7 @@ function PaginaPerfilOutro({ idUsuario, usernameUsuario, onVerPerfil }) {
 
   return (
     <div className="main-container perfil-main-container">
+      
       <aside className="sidebar-left">
         <div className="perfil-cabecalho">
           <Avatar
@@ -887,7 +1180,18 @@ function PaginaPerfilOutro({ idUsuario, usernameUsuario, onVerPerfil }) {
             <h2>Tags populares</h2>
             <ul className="tags-list">
               {TODAS_TAGS.map(tag => (
-                <li key={tag}><a href="#">{tag}</a></li>
+                <li key={tag}>
+                  <a 
+                    href="#" 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setFiltroTag(tag);
+                      setPaginaAtual("home");
+                    }}
+                  >
+                    {tag}
+                  </a>
+                </li>
               ))}
             </ul>
           </div>
@@ -901,30 +1205,48 @@ export default function App() {
   const [paginaAtual,    setPaginaAtual]    = useState(estaLogado() ? "home" : "login");
   const [notifNaoLidas,  setNotifNaoLidas]  = useState(0);
   const [sessaoKey,      setSessaoKey]      = useState(0);
-  const [perfilVisitado, setPerfilVisitado] = useState(null); // { id, username }
+  const [perfilVisitado, setPerfilVisitado] = useState(null);
+  const [meuId,          setMeuId]          = useState(null); 
+  const [filtroTag,      setFiltroTag]      = useState("");
 
   function handleVerPerfil(id, username) {
-    setPerfilVisitado({ id, username });
-    setPaginaAtual("perfil-outro");
+    if (meuId && id === meuId) {
+      setPaginaAtual("perfil");
+    } else {
+      setPerfilVisitado({ id, username });
+      setPaginaAtual("perfil-outro");
+    }
   }
 
-  function onLoginSucesso() {
+  function onLoginSucesso(usuario) {
     setSessaoKey(k => k + 1);
+    if (usuario?.id) setMeuId(usuario.id); 
     setPaginaAtual("home");
   }
 
   async function handleLogout() {
     await logout();
     removerToken();
+    setMeuId(null); 
     setPaginaAtual("login");
   }
 
   useEffect(() => {
-    if (!estaLogado()) return;
+    if (!estaLogado()) {
+      setMeuId(null);
+      return;
+    }
+
     getNotificacoes().then(({ dados, ok }) => {
       if (ok) setNotifNaoLidas(dados.nao_lidas ?? 0);
     });
-  }, [paginaAtual]);
+
+    if (!meuId) {
+      getMeuPerfil().then(({ dados, ok }) => {
+        if (ok) setMeuId(dados.id);
+      });
+    }
+  }, [paginaAtual, meuId]);
 
   const paginasAuth = ["login", "signup"];
   const ehPaginaAuth = paginasAuth.includes(paginaAtual);
@@ -932,33 +1254,31 @@ export default function App() {
   return (
     <>
       {!ehPaginaAuth && (
-        <Navbar
-          paginaAtual={paginaAtual}
-          setPaginaAtual={setPaginaAtual}
-          onLogout={handleLogout}
-          notifNaoLidas={notifNaoLidas}
-        />
+        <>
+          <img src={ornamentoBorda} alt="borda" className="ornamento-borda esquerda" />
+          <img src={ornamentoBorda} alt="borda" className="ornamento-borda direita" />
+          <Navbar
+            paginaAtual={paginaAtual}
+            setPaginaAtual={setPaginaAtual}
+            onLogout={handleLogout}
+            notifNaoLidas={notifNaoLidas}
+          />
+        </>
       )}
 
       {paginaAtual === "login"        && <PaginaLogin        setPaginaAtual={setPaginaAtual} onLoginSucesso={onLoginSucesso} />}
       {paginaAtual === "signup"       && <PaginaCadastro     setPaginaAtual={setPaginaAtual} onLoginSucesso={onLoginSucesso} />}
-      {paginaAtual === "home"         && <PaginaHome key={sessaoKey} onVerPerfil={handleVerPerfil} />}
+      {paginaAtual === "home"         && <PaginaHome key={sessaoKey} onVerPerfil={handleVerPerfil} filtroTag={filtroTag} setFiltroTag={setFiltroTag} setPaginaAtual={setPaginaAtual} />}
       {paginaAtual === "notificacoes" && <PaginaNotificacoes onVerPerfil={handleVerPerfil} />}
-      {paginaAtual === "perfil"       && <PaginaPerfil />}
+      {paginaAtual === "perfil"       && <PaginaPerfil setPaginaAtual={setPaginaAtual} setFiltroTag={setFiltroTag} />}
       {paginaAtual === "perfil-outro" && perfilVisitado && (
         <PaginaPerfilOutro
           idUsuario={perfilVisitado.id}
           usernameUsuario={perfilVisitado.username}
           onVerPerfil={handleVerPerfil}
+          setPaginaAtual={setPaginaAtual}
+          setFiltroTag={setFiltroTag}
         />
-      )}
-      {(paginaAtual === "dnd" || paginaAtual === "regras") && (
-        <div className="main-container">
-          <main className="feed-area feed-centro">
-            <h1 className="page-title">{paginaAtual === "dnd" ? "DnD" : "Regras"}</h1>
-            <p>Página em construção...</p>
-          </main>
-        </div>
       )}
     </>
   );
