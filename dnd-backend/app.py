@@ -7,7 +7,7 @@ from database import criar_indices
 import os
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})  # dps temo q restringir a origem
+CORS(app, resources={r"/*": {"origins": "https://reddit-rpg.vercel.app/"}})  
 
 app.register_blueprint(usuarios_bp)
 app.register_blueprint(postagens_bp)
