@@ -589,7 +589,7 @@ function PaginaCadastro({ setPaginaAtual, onLoginSucesso }) {
         <aside className="auth-metade esquerda">
           <div className="banner-content">
             <h1>Dados & Discussões</h1>
-            <p>Texto sobre nós e o website</p>
+            <p>Somos um grupo de estudantes de Sistemas de Informação que decidiu transformar nosso gosto por Dungeons & Dragons em um site para nosso trabalho final de Programação Web! A ideia foi criar um ambiente para todos aqueles fãns de RPG que queriam um lugar para falar sobre suas campanhas, personagens ou tirar dúvidas com a comunidade. É um DM e já quis conversar sobre sua nova mecânica Homebrew com alguém, mas não pode dar spoilers pros jogadores? Ou quer saber quais os melhores itens mágicos para dar ao seu bárbaro? Aqui é o lugar! O site ainda vai estar se desenvolvendo e ganhando novas funções com o tempo, então venham com a gente nessa jornada para fazer o Dados & Discussões (hehe) um lugar seguro para todos os jogadores! Esperamos que gostem e que os dados estejam ao seu favor ;)</p>
           </div>
           <img src={cavaleiro} alt="Cavaleiro" className="cavaleiro-img" />
         </aside>
