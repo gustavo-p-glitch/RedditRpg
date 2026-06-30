@@ -2,38 +2,58 @@ from flask import Blueprint, request, jsonify
 from datetime import datetime, timezone
 import uuid
 import database as db
-from auth import autenticar, gerar_token, hash_senha, verificar_senha
+from auth import autenticar
+from pymongo import DESCENDING
 from .extras import obter_ids_amigos
 
-usuarios_bp = Blueprint("usuarios", __name__, url_prefix="/usuarios")
+postagens_bp = Blueprint("postagens", __name__, url_prefix="/postagens")
 
 
 # Helpers
 
 
-def usuario_publico(u: dict):
+def enriquecer_post(post: dict, uid_logado: str):
+    
+    autor = db.usuarios.find_one({"id": post["autor_id"]})
+    
+    total_curtidas = db.curtidas.count_documents({"post_id": post["id"]})
+    curtido = db.curtidas.find_one({"post_id": post["id"], "usuario_id": uid_logado}) is not None
+    
+    coments = []
+    for c in db.comentarios.find({"post_id": post["id"]}):
+        autor_comentario = db.usuarios.find_one({"id": c["autor_id"]})
+        
+        c.pop('_id', None) 
+        
+        c["autor"] = {
+            "id": autor_comentario["id"],
+            "nome": autor_comentario["nome"],
+            "username": autor_comentario["username"]
+        } if autor_comentario else None
+
+        c["meu_comentario"] = (c["autor_id"] == uid_logado)
+        
+        coments.append(c)
+
+    post_limpo = post.copy()
+    post_limpo.pop('_id', None)
+
     return {
-        "id": u["id"],
-        "nome": u["nome"],
-        "username": u["username"],
-        "role": u.get("role", "Aventureiro"),
-        "bio": u.get("bio", ""),
-        "numero_foto": u.get("numero_foto"),
-        "data_entrada": u.get("data_entrada")
+        **post_limpo,
+        "autor": {
+            "id": autor["id"],
+            "nome": autor["nome"],
+            "username": autor["username"],
+            "role": autor["role"],
+        } if autor else None,
+        "likes": total_curtidas,
+        "curtido_por_mim": curtido,
+        "comments": len(coments),
+        "comentarios": coments,
     }
 
 
-def stats_usuario(uid: str):
-    return {
-        "total_postagens": db.postagens.count_documents({"autor_id": uid}),
-        "seguidores": db.seguidores.count_documents({"seguindo_id": uid}),
-        "seguindo": db.seguidores.count_documents({"seguidor_id": uid}),
-    }
-
-
-def criar_notificacao(
-    destinatario_id: str, remetente_id: str, tipo: str, post_id: str = None
-):
+def criar_notificacao(destinatario_id, remetente_id, tipo, post_id=None):
     if destinatario_id == remetente_id:
         return
     db.notificacoes.insert_one(
@@ -41,7 +61,7 @@ def criar_notificacao(
             "id": str(uuid.uuid4()),
             "destinatario_id": destinatario_id,
             "remetente_id": remetente_id,
-            "tipo": tipo,  
+            "tipo": tipo,
             "post_id": post_id,
             "lida": False,
             "criado_em": datetime.now(timezone.utc).isoformat(),
@@ -49,319 +69,298 @@ def criar_notificacao(
     )
 
 
-# POST /usuarios/cadastro
+# POST /postagens
 
 
-@usuarios_bp.post("/cadastro")
-def cadastro():
+@postagens_bp.post("/")
+@autenticar
+def criar_post():
     dados = request.get_json(silent=True) or {}
-    nome = (dados.get("nome") or "").strip()
-    email = (dados.get("email") or "").strip().lower()
-    senha = dados.get("senha", "")
-    username = (dados.get("username") or "").strip().lower()
-    role = (dados.get("role") or "Aventureiro").strip()
+    conteudo = (dados.get("conteudo") or "").strip()
+    tags = dados.get("tags", [])
 
-    if not all([nome, email, senha, username]):
-        return jsonify(
-            {"erro": "Campos obrigatórios: nome, email, senha, username."}
-        ), 400
+    if not conteudo:
+        return jsonify({"erro": "O conteúdo da postagem não pode ser vazio."}), 400
 
-    if len(senha) < 6:
-        return jsonify({"erro": "Senha deve ter no mínimo 6 caracteres."}), 400
+    if len(conteudo) > 500:
+        return jsonify({"erro": "Conteúdo excede 500 caracteres."}), 400
 
-    if db.usuarios.find_one({"email": email}):
-        return jsonify({"erro": "E-mail já cadastrado."}), 409
+    visibilidade = dados.get("visibilidade", "publico")
+    if visibilidade != "publico" and visibilidade != "amigos":
+        visibilidade = "publico"
 
-    if db.usuarios.find_one({"username": username}):
-        return jsonify({"erro": "Username já em uso."}), 409
-
-    novo = {
+    post = {
         "id": str(uuid.uuid4()),
-        "nome": nome,
-        "email": email,
-        "username": username,
-        "senha_hash": hash_senha(senha),
-        "role": role,
-        "bio": "",
-        "data_entrada": datetime.now(timezone.utc).strftime("%d/%m/%Y"),
+        "autor_id": request.usuario_id,
+        "conteudo": conteudo,
+        "tags": tags,
+        "visibilidade": visibilidade,
         "criado_em": datetime.now(timezone.utc).isoformat(),
     }
-    db.usuarios.insert_one(novo)
+    db.postagens.insert_one(post)
 
-    novo.pop('_id', None)
-
-    token = gerar_token(novo["id"])
     return jsonify(
-        {"mensagem": "Conta criada!", "token": token, "usuario": usuario_publico(novo)}
+        {
+            "mensagem": "Postagem criada!",
+            "postagem": enriquecer_post(post, request.usuario_id),
+        }
     ), 201
 
 
-# POST /usuarios/login
+# GET /postagens/feed/geral
 
 
-@usuarios_bp.post("/login")
-def login():
-    dados = request.get_json(silent=True) or {}
-    email = (dados.get("email") or "").strip().lower()
-    senha = dados.get("senha", "")
+@postagens_bp.get("/feed/geral")
+@autenticar
+def feed_geral():
+    pagina = int(request.args.get("pagina", 1))
+    limite = int(request.args.get("limite", 10))
+    tag = request.args.get("tag", "")
+    offset = (pagina - 1) * limite
 
-    if not email or not senha:
-        return jsonify({"erro": "E-mail e senha são obrigatórios."}), 400
+    amigos_ids = obter_ids_amigos(request.usuario_id)
 
-    usuario = db.usuarios.find_one({"email": email})
-    if not usuario or not verificar_senha(senha, usuario["senha_hash"]):
-        return jsonify({"erro": "Credenciais inválidas."}), 401
+    filtro = {
+        "$or": [
+            {"visibilidade": "publico"},
+            {"autor_id": {"$in": amigos_ids}},
+            {"autor_id": request.usuario_id}
+        ]
+    }
+    if tag:
+        filtro["tags"] = tag
 
-    token = gerar_token(usuario["id"])
-    usuario.pop('_id', None)
+    total = db.postagens.count_documents(filtro)
+
+    cursor = (
+        db.postagens.find(filtro)
+        .sort("criado_em", -1)
+        .skip(offset)
+        .limit(limite)
+    )
+
+    posts_paginados = [enriquecer_post(p, request.usuario_id) for p in cursor]
+
     return jsonify(
         {
-            "token": token,
-            "mensagem": "Login realizado."
+            "pagina": pagina,
+            "limite": limite,
+            "total": total,
+            "postagens": posts_paginados,
         }
     )
 
 
-# GET /usuarios/meu-perfil
+# GET /postagens/feed/amigos
 
 
-@usuarios_bp.get("/meu-perfil")
+@postagens_bp.get("/feed/amigos")
 @autenticar
-def meu_perfil_get():
-    usuario = db.usuarios.find_one({"id": request.usuario_id})
-    if usuario:
-        usuario.pop('_id', None)
-    return jsonify({**usuario_publico(usuario), **stats_usuario(request.usuario_id)})
+def feed_amigos():
+    pagina = int(request.args.get("pagina", 1))
+    limite = int(request.args.get("limite", 10))
+    tag = request.args.get("tag", "")
+    offset = (pagina - 1) * limite
 
+    amigos_ids = obter_ids_amigos(request.usuario_id)
 
-# PUT /usuarios/meu-perfil
+    filtro = {
+        "autor_id": {"$in": amigos_ids},
+        "visibilidade": "amigos"
+    }
+    if tag:
+        filtro["tags"] = tag
 
+    total = db.postagens.count_documents(filtro)
 
-@usuarios_bp.put("/meu-perfil")
-@autenticar
-def meu_perfil_put():
-    dados = request.get_json(silent=True) or {}
-    usuario = db.usuarios.find_one({"id": request.usuario_id})
-
-    if not usuario:
-        return jsonify({"erro": "Usuário não encontrado."}), 404
-
-    campos_atualizacao = {}
-
-    if "nome" in dados and dados["nome"].strip():
-        campos_atualizacao["nome"] = dados["nome"].strip()
-
-    if "bio" in dados:
-        campos_atualizacao["bio"] = dados["bio"].strip()
-
-    if "role" in dados and dados["role"].strip():
-        campos_atualizacao["role"] = dados["role"].strip()
-
-    if "username" in dados:
-        novo_username = dados["username"].strip().lower()
-        if novo_username != usuario["username"]:
-            if db.usuarios.find_one({"username": novo_username, "id": {"$ne": request.usuario_id}}):
-                return jsonify({"erro": "Username já em uso."}), 409
-            campos_atualizacao["username"] = novo_username
-
-    if "nova_senha" in dados:
-        if not verificar_senha(dados.get("senha_atual", ""), usuario["senha_hash"]):
-            return jsonify({"erro": "Senha atual incorreta."}), 401
-        if len(dados["nova_senha"]) < 6:
-            return jsonify({"erro": "Nova senha deve ter no mínimo 6 caracteres."}), 400
-        campos_atualizacao["senha_hash"] = hash_senha(dados["nova_senha"])
-
-    if campos_atualizacao:
-        db.usuarios.update_one({"id": request.usuario_id}, {"$set": campos_atualizacao})
-        usuario = db.usuarios.find_one({"id": request.usuario_id})
-
-    usuario.pop('_id', None)
-    return jsonify(
-        {"mensagem": "Perfil atualizado.", "usuario": usuario_publico(usuario)}
+    cursor = (
+        db.postagens.find(filtro)
+        .sort("criado_em", -1) 
+        .skip(offset)
+        .limit(limite)
     )
 
-
-# DELETE /usuarios/meu-perfil
-
-
-@usuarios_bp.delete("/meu-perfil")
-@autenticar
-def meu_perfil_delete():
-    uid = request.usuario_id
-    posts_do_usuario = db.postagens.find({"autor_id": uid}, {"id": 1})
-    posts_ids = [p["id"] for p in posts_do_usuario]
-
-    db.usuarios.delete_one({"id": uid})
-    db.postagens.delete_many({"autor_id": uid})
-    db.curtidas.delete_many({
-        "$or": [
-            {"usuario_id": uid},
-            {"post_id": {"$in": posts_ids}}
-        ]
-    })
-    db.comentarios.delete_many({
-        "$or": [
-            {"autor_id": uid},
-            {"post_id": {"$in": posts_ids}}
-        ]
-    })
-    db.seguidores.delete_many({
-        "$or": [
-            {"seguidor_id": uid},
-            {"seguindo_id": uid}
-        ]
-    })
-    db.notificacoes.delete_many({
-        "$or": [
-            {"destinatario_id": uid},
-            {"remetente_id": uid}
-        ]
-    })
-    
-    return jsonify({"mensagem": "Conta excluída com sucesso."})
-
-
-# GET /usuarios/fotos
-
-@usuarios_bp.get("/fotos")
-@autenticar
-def listar_fotos():
-    cursor_fotos = db.postagens.find({
-        "autor_id": request.usuario_id, 
-        "tem_foto": True
-    })
-
-    fotos = [
-        {
-            "id": p["id"],
-            "url": f"/static/fotos/{p['id']}.jpg",
-            "criado_em": p["criado_em"],
-        }
-        for p in cursor_fotos 
+    posts_paginados = [
+        enriquecer_post(p, request.usuario_id) for p in cursor
     ]
+
+    return jsonify(
+        {
+            "pagina": pagina,
+            "limite": limite,
+            "total": total,
+            "postagens": posts_paginados,
+        }
+    )
+
+
+# DELETE /postagens/<id_post>
+
+
+@postagens_bp.delete("/<id_post>")
+@autenticar
+def deletar_post(id_post):
+    post = db.postagens.find_one({"id": id_post})
+    if not post:
+        return jsonify({"erro": "Postagem não encontrada."}), 404
     
-    return jsonify({"fotos": fotos})
+    if post["autor_id"] != request.usuario_id:
+        return jsonify({"erro": "Sem permissão para excluir esta postagem."}), 403
+
+    db.postagens.delete_one({"id": id_post})
+    db.curtidas.delete_many({"post_id": id_post})
+    db.comentarios.delete_many({"post_id": id_post})
+
+    return jsonify({"mensagem": "Postagem excluída."})
 
 
-# POST /usuarios/sair
+# POST /postagens/<id_post>/curtir
 
 
-@usuarios_bp.post("/sair")
+@postagens_bp.post("/<id_post>/curtir")
 @autenticar
-def sair():
-    # JWT é stateless. Em produção adicione o token a uma blocklist (Redis).
-    return jsonify({"mensagem": "Logout realizado. Descarte o token no cliente."})
+def curtir(id_post):
+    post = db.postagens.find_one({"id": id_post})
+    if not post:
+        return jsonify({"erro": "Postagem não encontrada."}), 404
 
+    curtida = db.curtidas.find_one( {"post_id": id_post, "usuario_id": request.usuario_id} )
 
-# POST /usuarios/<id_pessoa>/seguir
-
-
-@usuarios_bp.post("/<id_pessoa>/seguir")
-@autenticar
-def seguir(id_pessoa):
-    if id_pessoa == request.usuario_id:
-        return jsonify({"erro": "Você não pode seguir a si mesmo."}), 400
-
-    alvo = db.usuarios.find_one({"id": id_pessoa})
-    if not alvo:
-        return jsonify({"erro": "Usuário não encontrado."}), 404
-
-    vinculo = db.seguidores.find_one({"seguidor_id": request.usuario_id, "seguindo_id": id_pessoa})
-
-    if vinculo:
-        db.seguidores.delete_one({"_id": vinculo["_id"]})
+    if curtida:
+        db.curtidas.delete_one(curtida)
+        total = db.curtidas.count_documents({"post_id": id_post})
         return jsonify(
-            {
-                "mensagem": f"Você deixou de seguir @{alvo['username']}.",
-                "seguindo": False,
-            }
+            {"mensagem": "Curtida removida.", "curtido": False, "total_curtidas": total}
         )
 
-    db.seguidores.insert_one(
+    db.curtidas.insert_one(
         {
             "id": str(uuid.uuid4()),
-            "seguidor_id": request.usuario_id,
-            "seguindo_id": id_pessoa,
+            "post_id": id_post,
+            "usuario_id": request.usuario_id,
             "criado_em": datetime.now(timezone.utc).isoformat(),
         }
     )
-    criar_notificacao(id_pessoa, request.usuario_id, "seguiu")
+    criar_notificacao(post["autor_id"], request.usuario_id, "curtiu", id_post)
+
+    total = db.curtidas.count_documents({"post_id": id_post})
     return jsonify(
-        {"mensagem": f"Você começou a seguir @{alvo['username']}.", "seguindo": True}
+        {"mensagem": "Postagem curtida!", "curtido": True, "total_curtidas": total}
     ), 201
 
 
-# GET /usuarios/seguindo
+# POST /postagens/<id_post>/comentario
 
 
-@usuarios_bp.get("/seguindo")
+@postagens_bp.post("/<id_post>/comentario")
 @autenticar
-def listar_seguindo():
-    cursor_seguindo = db.seguidores.find({"seguidor_id": request.usuario_id})
-    seguindo_ids = [s["seguindo_id"] for s in cursor_seguindo]
-    if not seguindo_ids:
-        return jsonify({"seguindo": []})
-    cursor_usuarios = db.usuarios.find({"id": {"$in": seguindo_ids}})
+def comentar(id_post):
+    post = db.postagens.find_one({"id": id_post})
+    if not post:
+        return jsonify({"erro": "Postagem não encontrada."}), 404
 
-    lista_seguindo = []
-    for u in cursor_usuarios:
-        lista_seguindo.append({
-            "id": u["id"],
-            "username": u["username"],
-            "role": u.get("role"),
-            "numero_foto": u.get("numero_foto"),
-        })
+    dados = request.get_json(silent=True) or {}
+    texto = (dados.get("texto") or "").strip()
 
-    return jsonify({"seguindo": lista_seguindo})
+    if not texto:
+        return jsonify({"erro": "O comentário não pode ser vazio."}), 400
+
+    if len(texto) > 300:
+        return jsonify({"erro": "Comentário excede 300 caracteres."}), 400
+
+    comentario = {
+        "id": str(uuid.uuid4()),
+        "post_id": id_post,
+        "autor_id": request.usuario_id,
+        "texto": texto,
+        "criado_em": datetime.now(timezone.utc).isoformat(),
+    }
+    db.comentarios.insert_one(comentario)
+    comentario.pop('_id', None)
+    criar_notificacao(post["autor_id"], request.usuario_id, "comentou", id_post)
+
+    autor = db.usuarios.find_one({"id": request.usuario_id})
+    return jsonify(
+        {
+            "mensagem": "Comentário adicionado.",
+            "comentario": {
+                **comentario,
+                "meu_comentario": True,
+                "autor": {
+                    "id": autor["id"],
+                    "nome": autor["nome"],
+                    "username": autor["username"],
+                }
+                if autor
+                else None,
+            },
+        }
+    ), 201
 
 
-# GET /usuarios/amigos
+# DELETE /postagens/<id_post>/comentario
 
 
-@usuarios_bp.get("/amigos")
+@postagens_bp.delete("/<id_post>/comentario")
 @autenticar
-def listar_amigos():
-    amigos_ids = obter_ids_amigos(request.usuario_id)
+def deletar_comentario(id_post):
+    dados = request.get_json(silent=True) or {}
+    comentario_id = dados.get("comentario_id")
 
-    if not amigos_ids:
-        return jsonify({"amigos": []})
+    if not comentario_id:
+        return jsonify({"erro": "Informe o comentario_id no body."}), 400
 
-    cursor_usuarios = db.usuarios.find({"id": {"$in": amigos_ids}})
-    lista_amigos = []
-    for u in cursor_usuarios:
-        lista_amigos.append({
-            "id": u["id"],
-            "username": u["username"],
-            "role": u.get("role", "Aventureiro"),
-            "numero_foto": u.get("numero_foto"),
-        })
-
-    return jsonify({"amigos": lista_amigos})
-
-
-# GET /usuarios/<id_usuario>
-
-
-@usuarios_bp.get("/<id_usuario>")
-@autenticar
-def obter_perfil_alvo(id_usuario):
-    u = db.usuarios.find_one({"id": id_usuario})
-    if not u:
-        return jsonify({"erro": "Usuário não encontrado."}), 404
-        
-    stats = stats_usuario(id_usuario)
+    comentario = db.comentarios.find_one({"id": comentario_id, "post_id": id_post})
     
-    vinculo = db.seguidores.find_one({"seguidor_id": request.usuario_id, "seguindo_id": id_usuario})
-    seguindo_eu = vinculo is not None
+    if not comentario:
+        return jsonify({"erro": "Comentário não encontrado."}), 404
+
+    post = db.postagens.find_one({"id": id_post})
+    autor_do_post = post["autor_id"] if post else None
+
+    if (
+        comentario["autor_id"] != request.usuario_id
+        and autor_do_post != request.usuario_id
+    ):
+        return jsonify({"erro": "Sem permissão para excluir este comentário."}), 403
+
+    db.comentarios.delete_one(comentario)
+    return jsonify({"mensagem": "Comentário excluído."})
+
+
+# GET /postagens/usuario/<id_usuario>
+
+
+@postagens_bp.get("/usuario/<id_usuario>")
+@autenticar
+def posts_por_usuario(id_usuario):
+    pagina = int(request.args.get("pagina", 1))
+    limite = int(request.args.get("limite", 10))
+    offset = (pagina - 1) * limite
+
+    amigos_ids = obter_ids_amigos(request.usuario_id)
+    
+    sao_amigos = (id_usuario in amigos_ids) or (id_usuario == request.usuario_id)
+
+    if sao_amigos:
+        filtro = {"autor_id": id_usuario}
+    else:
+        filtro = {"autor_id": id_usuario, "visibilidade": "publico"}
+
+    total = db.postagens.count_documents(filtro)
+
+    cursor = db.postagens.find(filtro)
+    cursor.sort("criado_em", DESCENDING)
+    cursor.skip(offset)
+    cursor.limit(limite)
+    
+    posts_paginados = [
+        enriquecer_post(p, request.usuario_id) for p in cursor
+    ]
     
     return jsonify({
-        "id": u["id"],
-        "nome": u["nome"],
-        "username": u["username"],
-        "role": u.get("role", "Aventureiro"),
-        "bio": u.get("bio", ""),
-        "numero_foto": u.get("numero_foto"),
-        **stats,
-        "seguindo_eu": seguindo_eu,
-        "data_entrada": u.get("data_entrada")
+        "pagina": pagina,
+        "limite": limite,
+        "total": total,
+        "postagens": posts_paginados,
     })
